@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -148,15 +148,15 @@
     <h2>Admin Panel</h2>
     <p>Anubhuti Healing Space â€” Website Management</p>
     <div class="login-field">
-      <label>Username</label>
-      <input type="text" id="login-user" placeholder="admin" autocomplete="username">
+      <label>Email</label>
+      <input type="email" id="login-user" placeholder="you@email.com" autocomplete="email">
     </div>
     <div class="login-field">
       <label>Password</label>
       <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password">
     </div>
-    <button class="login-btn" onclick="doLogin()">Sign In</button>
-    <div class="login-err" id="login-err">Incorrect username or password.</div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="login-err" id="login-err">Incorrect email or password.</div>
   </div>
 </div>
 
@@ -448,14 +448,23 @@
         <button class="secondary-btn" onclick="testConnection()">Test Cloudinary Connection</button>
         <div class="upload-status" id="test-status"></div>
         <hr class="divider">
-        <h3 style="margin-bottom:0.6rem;">Change Admin Password</h3>
-        <p style="font-size:0.85rem;color:#4A4A4A;margin-bottom:1rem;">Change your admin panel login password.</p>
-        <div class="field-group" style="margin-bottom:1.4rem;">
-          <label class="field-label">New Password</label>
-          <input class="field-input" type="password" id="new-password" placeholder="Enter new password">
+        <div id="local-password-section">
+          <h3 style="margin-bottom:0.6rem;">Change Local Admin Password</h3>
+          <p style="font-size:0.85rem;color:#4A4A4A;margin-bottom:1rem;">Change your fallback admin panel login password (used when Firebase is offline/not configured).</p>
+          <div class="field-group" style="margin-bottom:1.4rem;">
+            <label class="field-label">New Password</label>
+            <input class="field-input" type="password" id="new-password" placeholder="Enter new password">
+          </div>
+          <button class="submit-btn" onclick="saveSettings()">Save Password</button>
+          <div class="upload-status" id="settings-status"></div>
         </div>
-        <button class="submit-btn" onclick="saveSettings()">Save Password</button>
-        <div class="upload-status" id="settings-status"></div>
+        <div id="firebase-password-section" style="display:none;">
+          <h3 style="margin-bottom:0.6rem;">Firebase Authentication Active</h3>
+          <p style="font-size:0.85rem;color:#4A4A4A;margin-bottom:1rem;">User authentication is managed via Firebase Console.</p>
+          <div class="info-box">
+            To add new admins, remove users, or reset passwords, log in to your <strong><a href="https://console.firebase.google.com/" target="_blank" style="color:var(--brand); text-decoration: underline;">Firebase Console</a></strong>, navigate to <strong>Authentication &rarr; Users</strong>, and perform administrative actions there.
+          </div>
+        </div>
       </div>
     </div>
 
@@ -465,7 +474,8 @@
 <!-- Firebase SDKs (must come before config.js) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<!-- Config: initialises Firebase + exposes CONFIG + sendEmailjsForm -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<!-- Config: initialises Firebase + exposes CONFIG -->
 <script src="config.js"></script>
 
 <script>
@@ -476,27 +486,118 @@ async function _hash(s){
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
+
+let _auth = null;
+if (typeof firebase !== 'undefined' && CONFIG.firebase.projectId && !CONFIG.firebase.projectId.startsWith("YOUR_")) {
+  try {
+    _auth = firebase.auth();
+  } catch(e) {
+    console.error("Firebase auth initialization error:", e);
+  }
+}
+
+if (_auth) {
+  _auth.onAuthStateChanged(user => {
+    if (user) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadSettingsStatus();
+      updateStats();
+    } else {
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('login-pass').value = '';
+    }
+  });
+} else {
+  // If not configured, check if already locally authenticated this session
+  document.addEventListener('DOMContentLoaded', () => {
+    if (sessionStorage.getItem('local_admin_session') === 'true') {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadSettingsStatus();
+      updateStats();
+    }
+  });
+}
+
+function getFriendlyAuthError(code) {
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'Please enter a valid email address.';
+    case 'auth/user-disabled':
+      return 'This user account has been disabled.';
+    case 'auth/user-not-found':
+      return 'No administrator account found with this email.';
+    case 'auth/wrong-password':
+      return 'Incorrect password. Please try again.';
+    case 'auth/too-many-requests':
+      return 'Too many failed login attempts. Please try again later.';
+    default:
+      return 'Authentication failed. Please verify credentials.';
+  }
+}
+
 async function doLogin(){
   const u = document.getElementById('login-user').value.trim();
   const p = document.getElementById('login-pass').value;
-  const stored = localStorage.getItem('admin_ph');
-  const expected = stored || _H;
-  const attempt = await _hash(_S + p);
-  if(u === 'admin' && attempt === expected){
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    loadSettingsStatus();
-    updateStats();
+  const errEl = document.getElementById('login-err');
+  errEl.style.display = 'none';
+
+  if (!u || !p) {
+    errEl.textContent = 'Please fill in both fields.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = 'Signing In...';
+
+  if (_auth) {
+    try {
+      await _auth.signInWithEmailAndPassword(u, p);
+    } catch(err) {
+      console.error(err);
+      errEl.textContent = getFriendlyAuthError(err.code) || err.message;
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    }
   } else {
-    document.getElementById('login-err').style.display = 'block';
-    await new Promise(r=>setTimeout(r,1200));
+    // Fallback to local authentication
+    const expectedHash = localStorage.getItem('admin_ph') || _H;
+    const attemptHash = await _hash(_S + p);
+    if (u === 'admin' && attemptHash === expectedHash) {
+      sessionStorage.setItem('local_admin_session', 'true');
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadSettingsStatus();
+      updateStats();
+    } else {
+      errEl.textContent = 'Incorrect email or password.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    }
   }
 }
-function doLogout(){
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('login-pass').value = '';
+
+async function doLogout(){
+  if (_auth) {
+    try {
+      await _auth.signOut();
+    } catch(err) {
+      console.error(err);
+    }
+  } else {
+    sessionStorage.removeItem('local_admin_session');
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-pass').value = '';
+  }
 }
+
 document.addEventListener('keydown', e => {
   if(e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
 });
@@ -522,10 +623,20 @@ function loadSettingsStatus(){
   // Show config.js values (read-only display)
   const cn  = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName    : 'Not configured';
   const upr = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.uploadPreset : 'Not configured';
-  const fb  = (typeof db !== 'undefined' && db !== null) ? 'Connected âœ“' : 'Not configured (optional)';
+  const fb  = (typeof db !== 'undefined' && db !== null) ? 'Connected \u2713' : 'Not configured (optional)';
   const elCn  = document.getElementById('cfg-cloud-name');   if(elCn)  elCn.textContent  = cn;
   const elUp  = document.getElementById('cfg-upload-preset');if(elUp)  elUp.textContent  = upr;
   const elFb  = document.getElementById('cfg-firebase');     if(elFb)  elFb.textContent  = fb;
+
+  const localPwdSec = document.getElementById('local-password-section');
+  const fbPwdSec = document.getElementById('firebase-password-section');
+  if (_auth) {
+    if (localPwdSec) localPwdSec.style.display = 'none';
+    if (fbPwdSec) fbPwdSec.style.display = 'block';
+  } else {
+    if (localPwdSec) localPwdSec.style.display = 'block';
+    if (fbPwdSec) fbPwdSec.style.display = 'none';
+  }
 }
 function saveSettings(){
   const np = document.getElementById('new-password').value.trim();
