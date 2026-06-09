@@ -1,0 +1,14 @@
+# ── NEVER commit the real config file ──────────────────────────────────────
+# Your actual API keys live here. This file stays LOCAL only.
+config.js
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo

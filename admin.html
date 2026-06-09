@@ -1,0 +1,788 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Admin Panel | Anubhuti Healing Space</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:#F4F0FA;min-height:100vh;color:#1A1A1A;}
+  :root{--brand:#5B2D8E;--brand-dark:#3d1e6b;--white:#FFFFFF;--border:rgba(91,45,142,0.18);--bg:#F4F0FA;}
+
+  /* LOGIN */
+  #login-screen{position:fixed;inset:0;background:#FFFFFF;z-index:9999;display:flex;align-items:center;justify-content:center;}
+  .login-box{background:#FFFFFF;border:1px solid var(--border);border-radius:6px;padding:3rem;width:380px;box-shadow:0 8px 40px rgba(91,45,142,0.12);}
+  .login-box h2{font-family:'Outfit',sans-serif;font-size:1.5rem;font-weight:800;color:#1A1A1A;margin-bottom:0.4rem;}
+  .login-box p{font-size:0.875rem;color:#4A4A4A;margin-bottom:2rem;}
+  .login-field{display:flex;flex-direction:column;gap:6px;margin-bottom:1.2rem;}
+  .login-field label{font-family:'Outfit',sans-serif;font-size:0.78rem;font-weight:700;color:#4A4A4A;letter-spacing:0.06em;text-transform:uppercase;}
+  .login-field input{padding:11px 14px;border:1.5px solid var(--border);border-radius:4px;font-size:0.92rem;color:#1A1A1A;background:#FAFAFA;outline:none;transition:border-color 0.2s;}
+  .login-field input:focus{border-color:var(--brand);}
+  .login-btn{width:100%;background:var(--brand);color:#FFFFFF;border:none;padding:13px;border-radius:4px;font-family:'Outfit',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;transition:background 0.2s;}
+  .login-btn:hover{background:var(--brand-dark);}
+  .login-err{color:#c0392b;font-size:0.82rem;margin-top:0.6rem;display:none;}
+
+  /* LAYOUT */
+  #app{display:none;}
+  .sidebar{position:fixed;top:0;left:0;width:240px;height:100vh;background:var(--brand);display:flex;flex-direction:column;z-index:100;}
+  .sidebar-brand{padding:1.6rem 1.4rem 1rem;border-bottom:1px solid rgba(255,255,255,0.12);}
+  .sidebar-brand .name{font-family:'Outfit',sans-serif;font-weight:800;font-size:1rem;color:#FFFFFF;line-height:1.2;}
+  .sidebar-brand .sub{font-size:0.72rem;color:rgba(255,255,255,0.6);margin-top:2px;}
+  .sidebar-brand .badge{display:inline-block;background:rgba(255,255,255,0.15);color:#FFFFFF;font-size:0.68rem;font-family:'Outfit',sans-serif;font-weight:700;padding:2px 8px;border-radius:4px;margin-top:6px;letter-spacing:0.06em;text-transform:uppercase;}
+  nav.sidebar-nav{flex:1;padding:1rem 0;overflow-y:auto;}
+  .nav-section-label{font-family:'Outfit',sans-serif;font-size:0.66rem;font-weight:700;color:rgba(255,255,255,0.4);letter-spacing:0.1em;text-transform:uppercase;padding:0.8rem 1.4rem 0.3rem;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 1.4rem;cursor:pointer;transition:background 0.15s;color:rgba(255,255,255,0.75);font-size:0.88rem;font-weight:500;border-left:3px solid transparent;}
+  .nav-item:hover{background:rgba(255,255,255,0.08);color:#FFFFFF;}
+  .nav-item.active{background:rgba(255,255,255,0.12);color:#FFFFFF;border-left-color:#FFFFFF;}
+  .nav-item svg{opacity:0.7;flex-shrink:0;}
+  .nav-item.active svg{opacity:1;}
+  .sidebar-footer{padding:1rem 1.4rem;border-top:1px solid rgba(255,255,255,0.12);}
+  .logout-btn{width:100%;background:rgba(255,255,255,0.1);color:#FFFFFF;border:none;padding:9px;border-radius:4px;font-family:'Outfit',sans-serif;font-weight:600;font-size:0.82rem;cursor:pointer;transition:background 0.2s;}
+  .logout-btn:hover{background:rgba(255,255,255,0.2);}
+
+  /* MAIN */
+  .main{margin-left:240px;min-height:100vh;padding:2rem;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;}
+  .topbar h1{font-family:'Outfit',sans-serif;font-weight:800;font-size:1.5rem;color:#1A1A1A;}
+  .topbar .sub{font-size:0.85rem;color:#4A4A4A;margin-top:2px;}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:6px;}
+
+  /* PANELS */
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  /* CARDS */
+  .upload-card{background:#FFFFFF;border:1px solid var(--border);border-radius:6px;padding:2rem;margin-bottom:1.6rem;}
+  .upload-card h3{font-family:'Outfit',sans-serif;font-weight:700;font-size:1rem;color:#1A1A1A;margin-bottom:0.4rem;}
+  .upload-card p{font-size:0.85rem;color:#4A4A4A;line-height:1.6;margin-bottom:1.4rem;}
+  .field-label{font-family:'Outfit',sans-serif;font-size:0.75rem;font-weight:700;color:#4A4A4A;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;display:block;}
+  .field-input{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:4px;font-size:0.9rem;color:#1A1A1A;background:#FAFAFA;outline:none;transition:border-color 0.2s;font-family:'DM Sans',sans-serif;}
+  .field-input:focus{border-color:var(--brand);}
+  .field-select{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:4px;font-size:0.9rem;color:#1A1A1A;background:#FAFAFA;outline:none;appearance:none;font-family:'DM Sans',sans-serif;}
+  .field-textarea{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:4px;font-size:0.9rem;color:#1A1A1A;background:#FAFAFA;outline:none;resize:vertical;font-family:'DM Sans',sans-serif;min-height:90px;}
+  .field-group{margin-bottom:1rem;}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:600px){.form-row{grid-template-columns:1fr;}}
+
+  /* DROP ZONE */
+  .drop-zone{border:2px dashed var(--border);border-radius:6px;padding:2.5rem;text-align:center;cursor:pointer;transition:border-color 0.2s,background 0.2s;background:#FAFAFA;position:relative;}
+  .drop-zone:hover,.drop-zone.dragover{border-color:var(--brand);background:rgba(91,45,142,0.04);}
+  .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+  .drop-zone .dz-icon{font-size:2rem;margin-bottom:0.6rem;color:#C8B8E0;}
+  .drop-zone .dz-text{font-family:'Outfit',sans-serif;font-weight:600;font-size:0.88rem;color:#5B2D8E;}
+  .drop-zone .dz-sub{font-size:0.78rem;color:#4A4A4A;margin-top:4px;}
+
+  /* PREVIEW */
+  .preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:1.2rem;}
+  .preview-item{position:relative;border-radius:4px;overflow:hidden;aspect-ratio:1;background:#F0EBF8;border:1px solid var(--border);}
+  .preview-item img{width:100%;height:100%;object-fit:cover;}
+  .preview-item .del-btn{position:absolute;top:5px;right:5px;background:rgba(0,0,0,0.5);color:#FFFFFF;border:none;border-radius:50%;width:22px;height:22px;font-size:0.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .preview-item .img-name{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:#FFFFFF;font-size:0.65rem;padding:3px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  /* SUBMIT BTN */
+  .submit-btn{background:var(--brand);color:#FFFFFF;border:none;padding:11px 28px;border-radius:4px;font-family:'Outfit',sans-serif;font-weight:700;font-size:0.9rem;cursor:pointer;transition:background 0.2s,transform 0.15s;display:inline-flex;align-items:center;gap:8px;}
+  .submit-btn:hover{background:var(--brand-dark);transform:translateY(-1px);}
+  .submit-btn:disabled{background:#C8B8E0;cursor:not-allowed;transform:none;}
+  .secondary-btn{background:transparent;color:var(--brand);border:1.5px solid var(--brand);padding:10px 22px;border-radius:4px;font-family:'Outfit',sans-serif;font-weight:600;font-size:0.88rem;cursor:pointer;transition:all 0.2s;}
+  .secondary-btn:hover{background:rgba(91,45,142,0.06);}
+
+  /* STATUS */
+  .upload-status{margin-top:1rem;padding:12px 16px;border-radius:4px;font-size:0.88rem;display:none;}
+  .upload-status.success{background:#f0fdf4;border:1px solid #86efac;color:#166534;display:block;}
+  .upload-status.error{background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;display:block;}
+  .upload-status.loading{background:#f8f4fe;border:1px solid var(--border);color:var(--brand);display:block;}
+
+  /* UPLOADED LIST */
+  .uploaded-list{margin-top:1.4rem;}
+  .uploaded-list h4{font-family:'Outfit',sans-serif;font-weight:700;font-size:0.85rem;color:#4A4A4A;margin-bottom:0.8rem;text-transform:uppercase;letter-spacing:0.05em;}
+  .uploaded-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:#FAFAFA;border:1px solid var(--border);border-radius:4px;margin-bottom:8px;}
+  .uploaded-item img{width:48px;height:48px;object-fit:cover;border-radius:4px;flex-shrink:0;}
+  .uploaded-item .item-info{flex:1;min-width:0;}
+  .uploaded-item .item-name{font-family:'Outfit',sans-serif;font-weight:600;font-size:0.85rem;color:#1A1A1A;}
+  .uploaded-item .item-url{font-size:0.75rem;color:#4A4A4A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+  .copy-btn{background:transparent;border:1px solid var(--border);color:var(--brand);padding:4px 10px;border-radius:4px;font-size:0.75rem;font-family:'Outfit',sans-serif;font-weight:600;cursor:pointer;flex-shrink:0;}
+  .copy-btn:hover{background:rgba(91,45,142,0.06);}
+
+  /* DASHBOARD STATS */
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:2rem;}
+  .stat-card{background:#FFFFFF;border:1px solid var(--border);border-radius:6px;padding:1.4rem;text-align:center;}
+  .stat-card .num{font-family:'Outfit',sans-serif;font-size:2rem;font-weight:800;color:var(--brand);}
+  .stat-card .lbl{font-size:0.78rem;color:#4A4A4A;margin-top:4px;}
+
+  /* REVIEW CARD */
+  .review-card{background:#FFFFFF;border:1px solid var(--border);border-radius:6px;padding:1.4rem;margin-bottom:1rem;}
+  .review-card .reviewer{font-family:'Outfit',sans-serif;font-weight:700;font-size:0.9rem;color:#1A1A1A;}
+  .review-card .review-text{font-size:0.88rem;color:#2A2A2A;line-height:1.7;margin-top:0.5rem;}
+  .review-card .review-meta{font-size:0.75rem;color:#5B2D8E;margin-top:0.5rem;font-weight:600;}
+
+  /* PROGRESS BAR */
+  .progress-wrap{background:#F0EBF8;border-radius:4px;height:6px;margin-top:8px;overflow:hidden;}
+  .progress-bar{height:100%;background:var(--brand);width:0%;transition:width 0.3s;border-radius:4px;}
+
+  /* INFO BOX */
+  .info-box{background:#F8F4FE;border:1px solid rgba(91,45,142,0.15);border-radius:4px;padding:1rem 1.2rem;font-size:0.82rem;color:#2A2A2A;line-height:1.65;margin-bottom:1.2rem;}
+  .info-box strong{color:var(--brand);}
+
+  .tag{display:inline-block;background:rgba(91,45,142,0.1);color:var(--brand);border-radius:4px;padding:2px 8px;font-size:0.72rem;font-family:'Outfit',sans-serif;font-weight:600;}
+  .divider{border:none;border-top:1px solid var(--border);margin:1.6rem 0;}
+
+  @media(max-width:768px){
+    .sidebar{width:200px;}
+    .main{margin-left:200px;padding:1rem;}
+  }
+  @media(max-width:560px){
+    .sidebar{transform:translateX(-100%);transition:transform 0.3s;}
+    .sidebar.open{transform:translateX(0);}
+    .main{margin-left:0;padding:1rem;}
+    .menu-toggle{display:flex;}
+  }
+  .menu-toggle{display:none;position:fixed;top:1rem;left:1rem;z-index:200;background:var(--brand);color:#FFFFFF;border:none;border-radius:4px;width:38px;height:38px;align-items:center;justify-content:center;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <h2>Admin Panel</h2>
+    <p>Anubhuti Healing Space â€” Website Management</p>
+    <div class="login-field">
+      <label>Username</label>
+      <input type="text" id="login-user" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="Enter password" autocomplete="current-password">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="login-err" id="login-err">Incorrect username or password.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="name">Anubhuti Healing Space</div>
+      <div class="sub">Website Admin Panel</div>
+      <div class="badge">Cloudinary Connected</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Overview</div>
+      <div class="nav-item active" onclick="showPanel('dashboard',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-section-label">Upload Content</div>
+      <div class="nav-item" onclick="showPanel('founders',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Founder Photos
+      </div>
+      <div class="nav-item" onclick="showPanel('gallery',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Gallery Photos
+      </div>
+      <div class="nav-item" onclick="showPanel('reviews',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Reviews
+      </div>
+      <div class="nav-item" onclick="showPanel('workshops-upload',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        Workshop Photos
+      </div>
+      <div class="nav-section-label">Settings</div>
+      <div class="nav-item" onclick="showPanel('settings',this)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Cloudinary Settings
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="topbar">
+        <div>
+          <h1>Dashboard</h1>
+          <div class="sub"><span class="status-dot"></span>Connected to Cloudinary</div>
+        </div>
+        <a href="index.html" target="_blank" style="font-size:0.82rem;color:var(--brand);text-decoration:none;border:1px solid var(--border);padding:7px 14px;border-radius:4px;font-family:Outfit,sans-serif;font-weight:600;">View Website</a>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="num" id="stat-founders">0</div><div class="lbl">Founder Photos</div></div>
+        <div class="stat-card"><div class="num" id="stat-gallery">0</div><div class="lbl">Gallery Images</div></div>
+        <div class="stat-card"><div class="num" id="stat-workshops">0</div><div class="lbl">Workshop Photos</div></div>
+        <div class="stat-card"><div class="num" id="stat-reviews">4</div><div class="lbl">Published Reviews</div></div>
+      </div>
+      <div class="upload-card">
+        <h3>Quick Guide</h3>
+        <p>Use this admin panel to manage all images and content on the Anubhuti Healing Space website. All images are uploaded directly to Cloudinary and served from there across the website.</p>
+        <div class="info-box" style="margin-top:1rem;">
+          <strong>How it works:</strong> Select an image, add a label/name, and click Upload. The image goes to Cloudinary and the URL is saved. Copy the URL and paste it into the relevant HTML file to make it live on the website.
+        </div>
+        <div class="info-box">
+          <strong>Cloudinary Preset:</strong> Set your <code>upload_preset</code> and <code>cloud_name</code> in <strong>Cloudinary Settings</strong> before uploading.
+        </div>
+      </div>
+      <div class="upload-card">
+        <h3>Published Reviews</h3>
+        <p>The following verified Google reviews are currently live on the Stories page.</p>
+        <div class="review-card"><div class="reviewer">Siddhi Ghadge <span class="tag">Internship</span></div><div class="review-text">Great place to open up and find yourself. My first internship and truly the best experience...</div><div class="review-meta">Google Review Â· Live on website</div></div>
+        <div class="review-card"><div class="reviewer">Asawari Nikam <span class="tag">Workshop</span></div><div class="review-text">Attending the dance movement therapy workshop was a truly beautiful and enriching experience...</div><div class="review-meta">Google Review Â· Live on website</div></div>
+        <div class="review-card"><div class="reviewer">Manisha Sharma <span class="tag">Counselling</span></div><div class="review-text">I had a truly positive and deeply transformative experience. For nearly 6 years I had been searching for the right therapist...</div><div class="review-meta">Google Review Â· Live on website</div></div>
+        <div class="review-card"><div class="reviewer">Divyanka Devacha <span class="tag">Internship</span></div><div class="review-text">I had a great experience at Anubhuti Healing Space during my internship. The environment is very calm, positive, and supportive...</div><div class="review-meta">Google Review Â· Live on website</div></div>
+      </div>
+    </div>
+
+    <!-- FOUNDER PHOTOS -->
+    <div class="panel" id="panel-founders">
+      <div class="topbar"><div><h1>Founder Photos</h1><div class="sub">Upload professional photos for Darshani and Dhanashri</div></div></div>
+      <div class="upload-card">
+        <h3>Upload Founder Photo</h3>
+        <p>Photos uploaded here will be stored in Cloudinary under the <strong>founders/</strong> folder. Copy the generated URL and replace the initials placeholder in about.html.</p>
+        <div class="info-box"><strong>Recommended:</strong> Square photo, minimum 600x600px, JPG or PNG, professional headshot or formal portrait.</div>
+        <div class="form-row" style="margin-bottom:1rem;">
+          <div class="field-group">
+            <label class="field-label">Select Founder</label>
+            <select class="field-select" id="founder-select">
+              <option value="darshani-darwatkar">Darshani Darwatkar</option>
+              <option value="dhanashri-patil">Dhanashri Pravin Patil</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Photo Type</label>
+            <select class="field-select" id="founder-type">
+              <option value="headshot">Professional Headshot</option>
+              <option value="profile">Full Profile Photo</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Select Photo</label>
+          <div class="drop-zone" id="founder-drop" ondragover="handleDrag(event,this)" ondragleave="handleDragLeave(this)" ondrop="handleDrop(event,'founder-file')">
+            <input type="file" id="founder-file" accept="image/jpeg,image/png,image/webp" onchange="previewFile(this,'founder-preview')">
+            <div class="dz-icon">&#128247;</div>
+            <div class="dz-text">Click to select or drag and drop</div>
+            <div class="dz-sub">JPG, PNG or WEBP Â· Max 10MB</div>
+          </div>
+          <div id="founder-preview" class="preview-grid"></div>
+        </div>
+        <div class="progress-wrap" id="founder-progress-wrap" style="display:none;"><div class="progress-bar" id="founder-progress"></div></div>
+        <button class="submit-btn" onclick="uploadToCloudinary('founder-file','founders','founder-status','founder-progress','founder-list')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+          Upload to Cloudinary
+        </button>
+        <div class="upload-status" id="founder-status"></div>
+        <div class="uploaded-list" id="founder-list"></div>
+      </div>
+    </div>
+
+    <!-- GALLERY PHOTOS -->
+    <div class="panel" id="panel-gallery">
+      <div class="topbar"><div><h1>Gallery Photos</h1><div class="sub">Upload activity, event, and space photos for the website gallery</div></div></div>
+      <div class="upload-card">
+        <h3>Upload Gallery Image</h3>
+        <p>Gallery photos are uploaded to the <strong>gallery/</strong> folder on Cloudinary. Add a caption name to keep things organised.</p>
+        <div class="info-box"><strong>Recommended:</strong> Landscape orientation, minimum 1200x800px, JPG or PNG. Photos of workshops, activities, the healing space, and events work best.</div>
+        <div class="form-row" style="margin-bottom:1rem;">
+          <div class="field-group">
+            <label class="field-label">Image Name / Caption</label>
+            <input class="field-input" type="text" id="gallery-name" placeholder="e.g. Dance Movement Workshop May 2025">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Category</label>
+            <select class="field-select" id="gallery-category">
+              <option value="workshop">Workshop</option>
+              <option value="therapy">Therapy Session</option>
+              <option value="event">Event</option>
+              <option value="space">Healing Space</option>
+              <option value="team">Team</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Select Photos (multiple allowed)</label>
+          <div class="drop-zone" ondragover="handleDrag(event,this)" ondragleave="handleDragLeave(this)" ondrop="handleDrop(event,'gallery-file')">
+            <input type="file" id="gallery-file" accept="image/jpeg,image/png,image/webp" multiple onchange="previewFile(this,'gallery-preview')">
+            <div class="dz-icon">&#128247;</div>
+            <div class="dz-text">Click to select or drag and drop</div>
+            <div class="dz-sub">JPG, PNG or WEBP Â· Max 10MB each Â· Multiple files allowed</div>
+          </div>
+          <div id="gallery-preview" class="preview-grid"></div>
+        </div>
+        <div class="progress-wrap" id="gallery-progress-wrap" style="display:none;"><div class="progress-bar" id="gallery-progress"></div></div>
+        <button class="submit-btn" onclick="uploadToCloudinary('gallery-file','gallery','gallery-status','gallery-progress','gallery-list')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+          Upload to Cloudinary
+        </button>
+        <div class="upload-status" id="gallery-status"></div>
+        <div class="uploaded-list" id="gallery-list"></div>
+      </div>
+    </div>
+
+    <!-- REVIEWS PANEL -->
+    <div class="panel" id="panel-reviews">
+      <div class="topbar"><div><h1>Reviews</h1><div class="sub">Add new verified client reviews to the Stories page</div></div></div>
+      <div class="upload-card">
+        <h3>Add a New Review</h3>
+        <p>Only add reviews that have been verified on Google or received directly with the client's consent. Do not add fabricated reviews.</p>
+        <div class="info-box"><strong>Note:</strong> After filling this form, click "Generate HTML Snippet". Copy the generated code and paste it inside the reviews grid in <strong>stories.html</strong>.</div>
+        <div class="form-row" style="margin-bottom:1rem;">
+          <div class="field-group">
+            <label class="field-label">Reviewer Name</label>
+            <input class="field-input" type="text" id="rev-name" placeholder="e.g. Priya S.">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Service Used</label>
+            <select class="field-select" id="rev-service">
+              <option>Counselling and Therapy</option>
+              <option>Therapeutic Workshop</option>
+              <option>Support Group</option>
+              <option>Internship and Training</option>
+              <option>Parent Toddler Programme</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group" style="margin-bottom:1rem;">
+          <label class="field-label">Review Text</label>
+          <textarea class="field-textarea" id="rev-text" placeholder="Paste the full review text here..." rows="5"></textarea>
+        </div>
+        <div class="form-row" style="margin-bottom:1rem;">
+          <div class="field-group">
+            <label class="field-label">Source</label>
+            <select class="field-select" id="rev-source">
+              <option>Google Review</option>
+              <option>Direct Feedback</option>
+              <option>WhatsApp Message</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Consent Received?</label>
+            <select class="field-select" id="rev-consent">
+              <option value="yes">Yes, client consented</option>
+              <option value="google">Google Review (public)</option>
+              <option value="no">No (do not publish)</option>
+            </select>
+          </div>
+        </div>
+        <button class="submit-btn" onclick="generateReviewSnippet()">Generate HTML Snippet</button>
+        <div class="upload-status" id="rev-status"></div>
+        <div id="rev-snippet-wrap" style="display:none;margin-top:1.2rem;">
+          <label class="field-label">HTML Snippet â€” Copy and paste into stories.html</label>
+          <textarea class="field-textarea" id="rev-snippet" rows="10" style="font-family:monospace;font-size:0.78rem;" readonly></textarea>
+          <button class="secondary-btn" style="margin-top:0.6rem;" onclick="copySnippet()">Copy Snippet</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORKSHOP PHOTOS -->
+    <div class="panel" id="panel-workshops-upload">
+      <div class="topbar"><div><h1>Workshop Photos</h1><div class="sub">Upload photos from recent workshops and events</div></div></div>
+      <div class="upload-card">
+        <h3>Upload Workshop Photo</h3>
+        <p>Photos are uploaded to the <strong>workshops/</strong> folder on Cloudinary. Add the workshop name so photos stay organised.</p>
+        <div class="info-box"><strong>Tip:</strong> Upload multiple photos from the same workshop together. Use the workshop name as the caption so visitors can identify the event.</div>
+        <div class="form-row" style="margin-bottom:1rem;">
+          <div class="field-group">
+            <label class="field-label">Workshop Name</label>
+            <input class="field-input" type="text" id="ws-name" placeholder="e.g. Art Therapy Workshop June 2025">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Workshop Type</label>
+            <select class="field-select" id="ws-type">
+              <option>Art and Expressive Therapy</option>
+              <option>Dance Movement Therapy</option>
+              <option>Narrative Therapy</option>
+              <option>Music Therapy</option>
+              <option>Emotional Development</option>
+              <option>Parent Toddler Programme</option>
+              <option>Support Group</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Select Photos</label>
+          <div class="drop-zone" ondragover="handleDrag(event,this)" ondragleave="handleDragLeave(this)" ondrop="handleDrop(event,'ws-file')">
+            <input type="file" id="ws-file" accept="image/jpeg,image/png,image/webp" multiple onchange="previewFile(this,'ws-preview')">
+            <div class="dz-icon">&#128247;</div>
+            <div class="dz-text">Click to select or drag and drop</div>
+            <div class="dz-sub">JPG, PNG or WEBP Â· Max 10MB each</div>
+          </div>
+          <div id="ws-preview" class="preview-grid"></div>
+        </div>
+        <div class="progress-wrap" id="ws-progress-wrap" style="display:none;"><div class="progress-bar" id="ws-progress"></div></div>
+        <button class="submit-btn" onclick="uploadToCloudinary('ws-file','workshops','ws-status','ws-progress','ws-list')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+          Upload to Cloudinary
+        </button>
+        <div class="upload-status" id="ws-status"></div>
+        <div class="uploaded-list" id="ws-list"></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="panel" id="panel-settings">
+      <div class="topbar"><div><h1>Settings</h1><div class="sub">Admin password and connection status</div></div></div>
+      <div class="upload-card">
+        <h3>Cloudinary Status</h3>
+        <p>Cloudinary credentials are loaded from <strong>config.js</strong>. You do not need to enter them here.</p>
+        <div class="info-box">
+          <strong>Cloud Name:</strong> <span id="cfg-cloud-name" style="font-family:monospace;color:var(--brand);">Loadingâ€¦</span><br>
+          <strong>Upload Preset:</strong> <span id="cfg-upload-preset" style="font-family:monospace;color:var(--brand);">Loadingâ€¦</span><br>
+          <strong>Firebase:</strong> <span id="cfg-firebase" style="font-family:monospace;color:var(--brand);">Loadingâ€¦</span>
+        </div>
+        <button class="secondary-btn" onclick="testConnection()">Test Cloudinary Connection</button>
+        <div class="upload-status" id="test-status"></div>
+        <hr class="divider">
+        <h3 style="margin-bottom:0.6rem;">Change Admin Password</h3>
+        <p style="font-size:0.85rem;color:#4A4A4A;margin-bottom:1rem;">Change your admin panel login password.</p>
+        <div class="field-group" style="margin-bottom:1.4rem;">
+          <label class="field-label">New Password</label>
+          <input class="field-input" type="password" id="new-password" placeholder="Enter new password">
+        </div>
+        <button class="submit-btn" onclick="saveSettings()">Save Password</button>
+        <div class="upload-status" id="settings-status"></div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Firebase SDKs (must come before config.js) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- Config: initialises Firebase + exposes CONFIG + sendEmailjsForm -->
+<script src="config.js"></script>
+
+<script>
+// â”€â”€ AUTH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const _S = 'a9f3c8b2e1d47650';
+const _H = '3dfe3cea45bc299c8a74c4a4c659d33f1a56cbd29053003f7e566abfed361d7b';
+async function _hash(s){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function doLogin(){
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value;
+  const stored = localStorage.getItem('admin_ph');
+  const expected = stored || _H;
+  const attempt = await _hash(_S + p);
+  if(u === 'admin' && attempt === expected){
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadSettingsStatus();
+    updateStats();
+  } else {
+    document.getElementById('login-err').style.display = 'block';
+    await new Promise(r=>setTimeout(r,1200));
+  }
+}
+function doLogout(){
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-pass').value = '';
+}
+document.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
+});
+
+// â”€â”€ NAVIGATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function showPanel(id, el){
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  if(el) el.classList.add('active');
+  if(window.innerWidth <= 560) document.getElementById('sidebar').classList.remove('open');
+  // Load images for category panels
+  if(['founders','gallery','workshops-upload'].includes(id)) {
+    loadUploadedImages(id === 'workshops-upload' ? 'workshops' : id);
+  }
+}
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// â”€â”€ SETTINGS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function loadSettingsStatus(){
+  // Show config.js values (read-only display)
+  const cn  = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName    : 'Not configured';
+  const upr = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.uploadPreset : 'Not configured';
+  const fb  = (typeof db !== 'undefined' && db !== null) ? 'Connected âœ“' : 'Not configured (optional)';
+  const elCn  = document.getElementById('cfg-cloud-name');   if(elCn)  elCn.textContent  = cn;
+  const elUp  = document.getElementById('cfg-upload-preset');if(elUp)  elUp.textContent  = upr;
+  const elFb  = document.getElementById('cfg-firebase');     if(elFb)  elFb.textContent  = fb;
+}
+function saveSettings(){
+  const np = document.getElementById('new-password').value.trim();
+  if(!np){ showStatus('settings-status','error','Please enter a new password.'); return; }
+  _hash(_S+np).then(h=>{
+    localStorage.setItem('admin_ph',h);
+    document.getElementById('new-password').value = '';
+    showStatus('settings-status','success','Password updated successfully.');
+  });
+}
+function testConnection(){
+  const cn = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null;
+  if(!cn || cn.startsWith('YOUR_')){ showStatus('test-status','error','Cloud Name not set in config.js.'); return; }
+  showStatus('test-status','loading','Testing connectionâ€¦');
+  fetch(`https://api.cloudinary.com/v1_1/${cn}/ping`)
+    .then(r => r.json())
+    .then(d => {
+      if(d.status === 'ok') showStatus('test-status','success','âœ“ Cloudinary connected. Cloud name is valid.');
+      else showStatus('test-status','success','âœ“ Cloudinary reachable.');
+    })
+    .catch(() => showStatus('test-status','error','Could not reach Cloudinary. Check your Cloud Name in config.js.'));
+}
+
+// â”€â”€ FILE PREVIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function previewFile(input, previewId){
+  const wrap = document.getElementById(previewId);
+  wrap.innerHTML = '';
+  Array.from(input.files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const div = document.createElement('div');
+      div.className = 'preview-item';
+      div.innerHTML = `<img src="${e.target.result}" alt="preview">
+        <div class="img-name">${file.name}</div>
+        <button class="del-btn" onclick="this.parentElement.remove()">&#215;</button>`;
+      wrap.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function handleDrag(e, el){ e.preventDefault(); el.classList.add('dragover'); }
+function handleDragLeave(el){ el.classList.remove('dragover'); }
+function handleDrop(e, inputId){
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  const input = document.getElementById(inputId);
+  const dt = new DataTransfer();
+  Array.from(e.dataTransfer.files).forEach(f => dt.items.add(f));
+  input.files = dt.files;
+  input.dispatchEvent(new Event('change'));
+}
+
+// â”€â”€ FIRESTORE HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+async function saveImageToFirestore(category, data) {
+  const record = { ...data, category, uploadedAt: new Date().toISOString() };
+  if (typeof db !== 'undefined' && db !== null) {
+    try {
+      const docRef = await db.collection('media').add(record);
+      record.id = docRef.id;
+    } catch(e) { console.warn('Firestore save error:', e); }
+  }
+  // Always also save locally as fallback
+  const key = 'local_media_' + category;
+  const arr = JSON.parse(localStorage.getItem(key) || '[]');
+  if (!record.id) record.id = 'local_' + Date.now();
+  arr.unshift(record);
+  localStorage.setItem(key, JSON.stringify(arr.slice(0, 100)));
+  return record;
+}
+
+async function loadImagesFromSource(category) {
+  if (typeof db !== 'undefined' && db !== null) {
+    try {
+      const snap = await db.collection('media')
+        .where('category', '==', category)
+        .orderBy('uploadedAt', 'desc')
+        .limit(50)
+        .get();
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch(e) { console.warn('Firestore read error:', e); }
+  }
+  // Fallback to localStorage
+  return JSON.parse(localStorage.getItem('local_media_' + category) || '[]');
+}
+
+async function deleteImage(docId, category, cardEl) {
+  if (typeof db !== 'undefined' && db !== null && !docId.startsWith('local_')) {
+    try { await db.collection('media').doc(docId).delete(); } catch(e) { console.warn(e); }
+  }
+  const key = 'local_media_' + category;
+  const arr = JSON.parse(localStorage.getItem(key) || '[]').filter(i => i.id !== docId);
+  localStorage.setItem(key, JSON.stringify(arr));
+  cardEl.remove();
+  updateStats();
+}
+
+// â”€â”€ LOAD UPLOADED IMAGES INTO PANEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+async function loadUploadedImages(category) {
+  const panelId = category === 'workshops' ? 'panel-workshops-upload' : 'panel-' + category;
+  const listId  = category + '-list';
+  const listEl  = document.getElementById(listId);
+  if (!listEl) return;
+  listEl.innerHTML = '<h4>Previously Uploaded</h4><p style="font-size:0.82rem;color:#9B7FC0;margin-bottom:0.8rem;">Loadingâ€¦</p>';
+  const images = await loadImagesFromSource(category);
+  if (!images.length) {
+    listEl.innerHTML = '<h4>Previously Uploaded</h4><p style="font-size:0.82rem;color:#9B7FC0;">No images uploaded yet.</p>';
+    return;
+  }
+  listEl.innerHTML = `<h4>Previously Uploaded (${images.length})</h4>`;
+  images.forEach(img => {
+    const item = document.createElement('div');
+    item.className = 'uploaded-item';
+    item.setAttribute('data-id', img.id);
+    item.innerHTML = `
+      <img src="${img.url}" alt="${img.name || ''}" onerror="this.style.background='#f0ebf8';this.src=''">
+      <div class="item-info">
+        <div class="item-name">${img.caption || img.name || 'Untitled'}</div>
+        <div class="item-url">${img.url}</div>
+        <div style="font-size:0.7rem;color:#9B7FC0;margin-top:2px;">${img.uploadedAt ? new Date(img.uploadedAt).toLocaleDateString('en-IN') : ''}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('${img.url}').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy URL',1500)})">Copy URL</button>
+        <button class="copy-btn" style="border-color:#fca5a5;color:#c0392b;" onclick="deleteImage('${img.id}','${category}',this.closest('.uploaded-item'))">Delete</button>
+      </div>`;
+    listEl.appendChild(item);
+  });
+}
+
+// â”€â”€ UPLOAD TO CLOUDINARY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+async function uploadToCloudinary(fileInputId, folder, statusId, progressId, listId, extraMeta) {
+  const input = document.getElementById(fileInputId);
+  if(!input.files || input.files.length === 0){
+    showStatus(statusId,'error','Please select at least one image to upload.');
+    return;
+  }
+  // Get credentials from config.js
+  const cloudName    = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName    : null;
+  const uploadPreset = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.uploadPreset : null;
+
+  if(!cloudName || cloudName.startsWith('YOUR_') || !uploadPreset || uploadPreset.startsWith('YOUR_')){
+    showStatus(statusId,'error','Cloudinary not configured. Please add your Cloud Name and Upload Preset to config.js.');
+    return;
+  }
+
+  const files = Array.from(input.files);
+  const total = files.length;
+  let done = 0;
+  const pwrap = document.getElementById(progressId + '-wrap');
+  const pbar  = document.getElementById(progressId);
+  if(pwrap) pwrap.style.display = 'block';
+  showStatus(statusId,'loading',`Uploading ${total} file${total>1?'s':''}â€¦`);
+
+  const listEl = document.getElementById(listId);
+  if(listEl && !listEl.querySelector('h4')) listEl.innerHTML = '<h4>Just Uploaded</h4>';
+
+  for(const file of files){
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('upload_preset', uploadPreset);
+      fd.append('folder', folder);
+      const res  = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method:'POST', body:fd });
+      const data = await res.json();
+      if(data.secure_url){
+        // Build the record
+        const caption = extraMeta ? extraMeta() : file.name;
+        const record  = await saveImageToFirestore(folder, {
+          url:       data.secure_url,
+          name:      file.name,
+          caption:   caption,
+          publicId:  data.public_id,
+          width:     data.width,
+          height:    data.height
+        });
+        done++;
+        if(pbar) pbar.style.width = Math.round((done/total)*100) + '%';
+        // Show in panel immediately
+        if(listEl) {
+          const item = document.createElement('div');
+          item.className = 'uploaded-item';
+          item.setAttribute('data-id', record.id);
+          item.innerHTML = `
+            <img src="${data.secure_url}" alt="${file.name}">
+            <div class="item-info">
+              <div class="item-name">${caption}</div>
+              <div class="item-url">${data.secure_url}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button class="copy-btn" onclick="navigator.clipboard.writeText('${data.secure_url}').then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy URL',1500)})">Copy URL</button>
+              <button class="copy-btn" style="border-color:#fca5a5;color:#c0392b;" onclick="deleteImage('${record.id}','${folder}',this.closest('.uploaded-item'))">Delete</button>
+            </div>`;
+          listEl.appendChild(item);
+        }
+      } else {
+        showStatus(statusId,'error', data.error?.message || 'Upload failed. Check your preset is set to Unsigned.');
+        return;
+      }
+    } catch(err){
+      showStatus(statusId,'error','Upload failed: ' + err.message);
+      return;
+    }
+  }
+  showStatus(statusId,'success',`âœ“ ${done} image${done>1?'s':''} uploaded and saved. They will appear on the website automatically.`);
+  updateStats();
+}
+
+// â”€â”€ REVIEW SNIPPET GENERATOR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function generateReviewSnippet(){
+  const name = document.getElementById('rev-name').value.trim();
+  const service = document.getElementById('rev-service').value;
+  const text = document.getElementById('rev-text').value.trim();
+  const source = document.getElementById('rev-source').value;
+  const consent = document.getElementById('rev-consent').value;
+  if(!name || !text){ showStatus('rev-status','error','Please enter the reviewer name and review text.'); return; }
+  if(consent === 'no'){ showStatus('rev-status','error','Cannot generate snippet: consent not received.'); return; }
+  const snippet = `
+        <!-- Review: ${name} -->
+        <div style="background:#FFFFFF;border:1px solid rgba(91,45,142,0.12);border-radius:6px;padding:1.8rem;box-shadow:0 2px 12px rgba(0,0,0,0.04);">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;">
+            <div>
+              <div style="font-family:'Outfit',sans-serif;font-weight:700;font-size:0.95rem;color:#1A1A1A;">${name}</div>
+              <div style="font-size:0.78rem;color:#4A4A4A;margin-top:2px;">${service}</div>
+            </div>
+            <div><span style="color:#5B2D8E;font-size:0.9rem;">&#9733;&#9733;&#9733;&#9733;&#9733;</span></div>
+          </div>
+          <p style="font-size:0.9rem;color:#2A2A2A;line-height:1.75;margin:0;">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>
+          <div style="margin-top:1rem;font-size:0.78rem;color:#5B2D8E;font-weight:600;">${source}</div>
+        </div>`.trim();
+  document.getElementById('rev-snippet').value = snippet;
+  document.getElementById('rev-snippet-wrap').style.display = 'block';
+  showStatus('rev-status','success','Snippet generated. Copy it and paste inside the reviews grid in stories.html.');
+}
+function copySnippet(){
+  const ta = document.getElementById('rev-snippet');
+  navigator.clipboard.writeText(ta.value).then(() => {
+    const btn = ta.nextElementSibling;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy Snippet', 2000);
+  });
+}
+
+// â”€â”€ STATS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+async function updateStats(){
+  for (const k of ['founders','gallery','workshops']) {
+    const images = await loadImagesFromSource(k);
+    const el = document.getElementById('stat-' + k);
+    if(el) el.textContent = images.length;
+  }
+}
+
+// â”€â”€ STATUS HELPER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function showStatus(id, type, msg){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'upload-status ' + type;
+  el.textContent = msg;
+}
+</script>
+</body>
+</html>
