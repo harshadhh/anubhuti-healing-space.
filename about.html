@@ -4238,16 +4238,26 @@
 <!-- Config (initialises Firebase + exposes CONFIG) -->
 <script src="api-helpers.js"></script>
 <script>
-  // ── DYNAMIC IMAGE LOADING FROM CLOUDINARY / FIRESTORE ────────────────────
+  // ── DYNAMIC IMAGE LOADING FROM CLOUDINARY DIRECTLY ───────────────────────
   async function loadMediaFromSource(category) {
-    if (typeof db !== 'undefined' && db !== null) {
+    const cloudName = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null;
+    if (cloudName && !cloudName.includes('_PLACEHOLDER')) {
+      const tag = `anubhuti-${category}`;
       try {
-        const snap = await db.collection('media')
-          .where('category', '==', category)
-          .orderBy('uploadedAt', 'desc')
-          .limit(50).get();
-        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      } catch(e) { /* fallback to localStorage */ }
+        const res = await fetch(`https://res.cloudinary.com/${cloudName}/image/list/${tag}.json`);
+        if (res.ok) {
+          const data = await res.json();
+          return data.resources.map(r => ({
+            id: r.public_id,
+            url: `https://res.cloudinary.com/${cloudName}/image/upload/v${r.version}/${r.public_id}.${r.format}`,
+            name: r.public_id,
+            caption: r.context && r.context.custom && r.context.custom.caption ? r.context.custom.caption : '',
+            uploadedAt: new Date(r.created_at).toISOString()
+          }));
+        }
+      } catch(e) {
+        console.warn('Cloudinary tag list fetch error:', e);
+      }
     }
     return JSON.parse(localStorage.getItem('local_media_' + category) || '[]');
   }
