@@ -821,7 +821,7 @@
       <div class="sidebar-brand">
         <div class="name">Anubhuti Healing Space</div>
         <div class="sub">Website Admin Panel</div>
-        <div class="badge">Cloudinary Connected</div>
+        <div class="badge" id="sidebar-badge">Cloudinary Connected</div>
       </div>
       <nav class="sidebar-nav">
         <div class="nav-section-label">Overview</div>
@@ -937,8 +937,8 @@
             uploaded directly to Cloudinary and served from there across the website.</p>
           <div class="info-box" style="margin-top:1rem;">
             <strong>How it works:</strong> Select an image, add a label/name, and click Upload. The image goes to
-            Cloudinary and the URL is saved. Copy the URL and paste it into the relevant HTML file to make it live on
-            the website.
+            Cloudinary and the URL is saved to Firestore (cross-browser). Gallery, Workshop, and Founder photos are
+            all stored in Firestore so they appear the same across every browser and device automatically.
           </div>
           <div class="info-box">
             <strong>Cloudinary Preset:</strong> Set your <code>upload_preset</code> and <code>cloud_name</code> in
@@ -1569,15 +1569,44 @@
     // â”€â”€ FIRESTORE HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     async function saveImageLocally(category, data) {
       const record = { ...data, category, uploadedAt: new Date().toISOString() };
+      // 1. Try Firestore first (cross-browser, persistent)
+      if (typeof db !== 'undefined' && db !== null) {
+        try {
+          const docRef = await db.collection('media').add(record);
+          record.id = docRef.id;
+          console.log('Saved to Firestore:', record.id);
+        } catch (e) {
+          console.warn('Firestore save failed, falling back to localStorage:', e);
+          if (!record.id) record.id = 'local_' + Date.now();
+        }
+      } else {
+        if (!record.id) record.id = 'local_' + Date.now();
+      }
+      // 2. Always also cache in localStorage as fallback
       const key = 'local_media_' + category;
       const arr = JSON.parse(localStorage.getItem(key) || '[]');
-      if (!record.id) record.id = 'local_' + Date.now();
       arr.unshift(record);
       localStorage.setItem(key, JSON.stringify(arr.slice(0, 100)));
       return record;
     }
 
     async function loadImagesFromSource(category) {
+      // 1. If Firestore is connected, use it (cross-browser, always up to date)
+      if (typeof db !== 'undefined' && db !== null) {
+        try {
+          const snapshot = await db.collection('media')
+            .where('category', '==', category)
+            .orderBy('uploadedAt', 'desc')
+            .limit(100)
+            .get();
+          if (!snapshot.empty) {
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          }
+        } catch (e) {
+          console.warn('Firestore load failed, trying Cloudinary tag list:', e);
+        }
+      }
+      // 2. Try Cloudinary tag list (requires "Resource list" enabled in Cloudinary settings)
       const { cloudName } = getCloudinaryCredentials();
       if (cloudName && !cloudName.includes('_PLACEHOLDER')) {
         const tag = `anubhuti-${category}`;
@@ -1597,7 +1626,7 @@
           console.warn('Cloudinary tag list fetch error:', e);
         }
       }
-      // Fallback to localStorage
+      // 3. Last resort: localStorage (only visible in current browser)
       return JSON.parse(localStorage.getItem('local_media_' + category) || '[]');
     }
 
@@ -1861,6 +1890,18 @@
 
     // Start listeners on load
     setupInactivityListeners();
+
+    // Update sidebar badge
+    document.addEventListener('DOMContentLoaded', () => {
+      const badge = document.getElementById('sidebar-badge');
+      if (badge && typeof db !== 'undefined' && db !== null) {
+        badge.textContent = 'Firestore + Cloudinary';
+      }
+    });
+    if (typeof db !== 'undefined' && db !== null) {
+      const badge = document.getElementById('sidebar-badge');
+      if (badge) badge.textContent = 'Firestore + Cloudinary';
+    }
   </script>
 </body>
 
