@@ -821,7 +821,7 @@
       <div class="sidebar-brand">
         <div class="name">Anubhuti Healing Space</div>
         <div class="sub">Website Admin Panel</div>
-        <div class="badge" id="sidebar-badge">Cloudinary Connected</div>
+        <div class="badge">Cloudinary Connected</div>
       </div>
       <nav class="sidebar-nav">
         <div class="nav-section-label">Overview</div>
@@ -937,8 +937,8 @@
             uploaded directly to Cloudinary and served from there across the website.</p>
           <div class="info-box" style="margin-top:1rem;">
             <strong>How it works:</strong> Select an image, add a label/name, and click Upload. The image goes to
-            Cloudinary and the URL is saved to Firestore (cross-browser). Gallery, Workshop, and Founder photos are
-            all stored in Firestore so they appear the same across every browser and device automatically.
+            Cloudinary and the URL is saved. Copy the URL and paste it into the relevant HTML file to make it live on
+            the website.
           </div>
           <div class="info-box">
             <strong>Cloudinary Preset:</strong> Set your <code>upload_preset</code> and <code>cloud_name</code> in
@@ -989,6 +989,12 @@
             generated URL and replace the initials placeholder in about.html.</p>
           <div class="info-box"><strong>Recommended:</strong> Square photo, minimum 600x600px, JPG or PNG, professional
             headshot or formal portrait.</div>
+          <div class="info-box" style="background:#fff8e1;border-color:#ffe082;color:#5d4037;">
+            <strong>⚙ One-time Cloudinary setup required for cross-browser visibility:</strong><br>
+            Go to <strong>Cloudinary Console → Settings → Security</strong> and turn ON <strong>"Resource list"</strong>.
+            This allows the admin panel to load uploaded images in any browser without Firebase.
+            If Firebase (Firestore) is configured in your GitHub Actions secrets, images load cross-browser automatically.
+          </div>
           <div class="form-row" style="margin-bottom:1rem;">
             <div class="field-group">
               <label class="field-label">Select Founder</label>
@@ -1567,76 +1573,85 @@
     }
 
     // â”€â”€ FIRESTORE HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── SHARED STORAGE KEY (used by all browsers via localStorage sync on same origin,
+    //    but the REAL cross-browser fix is the Cloudinary folder manifest below) ──
+    function _lsKey(category) { return 'media_manifest_' + category; }
+
     async function saveImageLocally(category, data) {
       const record = { ...data, category, uploadedAt: new Date().toISOString() };
-      // 1. Try Firestore first (cross-browser, persistent)
+      if (!record.id) record.id = 'img_' + Date.now();
+      // Save to localStorage manifest (same browser)
+      const arr = JSON.parse(localStorage.getItem(_lsKey(category)) || '[]');
+      arr.unshift(record);
+      localStorage.setItem(_lsKey(category), JSON.stringify(arr.slice(0, 200)));
+      // Save to Firestore if available (cross-browser)
       if (typeof db !== 'undefined' && db !== null) {
         try {
-          const docRef = await db.collection('media').add(record);
-          record.id = docRef.id;
+          await db.collection('media_uploads').doc(record.id).set(record);
           console.log('Saved to Firestore:', record.id);
         } catch (e) {
-          console.warn('Firestore save failed, falling back to localStorage:', e);
-          if (!record.id) record.id = 'local_' + Date.now();
+          console.warn('Firestore save failed:', e.message);
         }
-      } else {
-        if (!record.id) record.id = 'local_' + Date.now();
       }
-      // 2. Always also cache in localStorage as fallback
-      const key = 'local_media_' + category;
-      const arr = JSON.parse(localStorage.getItem(key) || '[]');
-      arr.unshift(record);
-      localStorage.setItem(key, JSON.stringify(arr.slice(0, 100)));
       return record;
     }
 
     async function loadImagesFromSource(category) {
-      // 1. If Firestore is connected, use it (cross-browser, always up to date)
+      // ── PRIORITY 1: Firestore (cross-browser, always accurate) ──
       if (typeof db !== 'undefined' && db !== null) {
         try {
-          const snapshot = await db.collection('media')
+          const snap = await db.collection('media_uploads')
             .where('category', '==', category)
             .orderBy('uploadedAt', 'desc')
             .limit(100)
             .get();
-          if (!snapshot.empty) {
-            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          if (!snap.empty) {
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
           }
         } catch (e) {
-          console.warn('Firestore load failed, trying Cloudinary tag list:', e);
+          console.warn('Firestore read error:', e.message);
         }
       }
-      // 2. Try Cloudinary tag list (requires "Resource list" enabled in Cloudinary settings)
+
+      // ── PRIORITY 2: Cloudinary tag-list JSON (works if "Resource list" is ON in Cloudinary) ──
       const { cloudName } = getCloudinaryCredentials();
       if (cloudName && !cloudName.includes('_PLACEHOLDER')) {
-        const tag = `anubhuti-${category}`;
         try {
-          const res = await fetch(`https://res.cloudinary.com/${cloudName}/image/list/${tag}.json`);
+          const res = await fetch(`https://res.cloudinary.com/${cloudName}/image/list/anubhuti-${category}.json`);
           if (res.ok) {
             const data = await res.json();
-            return data.resources.map(r => ({
-              id: r.public_id,
-              url: `https://res.cloudinary.com/${cloudName}/image/upload/v${r.version}/${r.public_id}.${r.format}`,
-              name: r.public_id,
-              caption: r.context && r.context.custom && r.context.custom.caption ? r.context.custom.caption : '',
-              uploadedAt: new Date(r.created_at).toISOString()
-            }));
+            if (data.resources && data.resources.length > 0) {
+              // Also cache these into localStorage so they survive next time
+              const records = data.resources.map(r => ({
+                id: r.public_id,
+                url: `https://res.cloudinary.com/${cloudName}/image/upload/v${r.version}/${r.public_id}.${r.format}`,
+                name: r.public_id,
+                caption: r.context?.custom?.caption || '',
+                category,
+                uploadedAt: new Date(r.created_at).toISOString()
+              }));
+              localStorage.setItem(_lsKey(category), JSON.stringify(records));
+              return records;
+            }
           }
         } catch (e) {
-          console.warn('Cloudinary tag list fetch error:', e);
+          console.warn('Cloudinary tag list error:', e.message);
         }
       }
-      // 3. Last resort: localStorage (only visible in current browser)
-      return JSON.parse(localStorage.getItem('local_media_' + category) || '[]');
+
+      // ── PRIORITY 3: localStorage manifest (same browser fallback) ──
+      return JSON.parse(localStorage.getItem(_lsKey(category)) || '[]');
     }
 
     async function deleteImage(docId, category, cardEl) {
-      if (typeof db !== 'undefined' && db !== null && !docId.startsWith('local_')) {
-        try { await db.collection('media').doc(docId).delete(); } catch (e) { console.warn(e); }
+      if (typeof db !== 'undefined' && db !== null) {
+        try { await db.collection('media_uploads').doc(docId).delete(); } catch (e) { console.warn(e); }
       }
-      const key = 'local_media_' + category;
-      const arr = JSON.parse(localStorage.getItem(key) || '[]').filter(i => i.id !== docId);
-      localStorage.setItem(key, JSON.stringify(arr));
+      const arr = JSON.parse(localStorage.getItem(_lsKey(category)) || '[]').filter(i => i.id !== docId);
+      localStorage.setItem(_lsKey(category), JSON.stringify(arr));
+      cardEl.remove();
+      updateStats();
+    }
       cardEl.remove();
       updateStats();
     }
@@ -1890,18 +1905,6 @@
 
     // Start listeners on load
     setupInactivityListeners();
-
-    // Update sidebar badge
-    document.addEventListener('DOMContentLoaded', () => {
-      const badge = document.getElementById('sidebar-badge');
-      if (badge && typeof db !== 'undefined' && db !== null) {
-        badge.textContent = 'Firestore + Cloudinary';
-      }
-    });
-    if (typeof db !== 'undefined' && db !== null) {
-      const badge = document.getElementById('sidebar-badge');
-      if (badge) badge.textContent = 'Firestore + Cloudinary';
-    }
   </script>
 </body>
 
