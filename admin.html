@@ -669,14 +669,23 @@ function saveSettings(){
 function testConnection(){
   const cn = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null;
   if(!cn || cn.startsWith('YOUR_')){ showStatus('test-status','error','Cloud Name not set in config.js.'); return; }
-  showStatus('test-status','loading','Testing connectionâ€¦');
-  fetch(`https://api.cloudinary.com/v1_1/${cn}/ping`)
-    .then(r => r.json())
-    .then(d => {
-      if(d.status === 'ok') showStatus('test-status','success','âœ“ Cloudinary connected. Cloud name is valid.');
-      else showStatus('test-status','success','âœ“ Cloudinary reachable.');
-    })
-    .catch(() => showStatus('test-status','error','Could not reach Cloudinary. Check your Cloud Name in config.js.'));
+  showStatus('test-status','loading','Testing connection…');
+  
+  const img = new Image();
+  img.onload = () => {
+    showStatus('test-status','success','✓ Cloudinary connected successfully. Cloud name is valid.');
+  };
+  img.onerror = () => {
+    // Fallback check: fetch with no-cors to bypass CORS blocks on raw resource checks
+    fetch(`https://res.cloudinary.com/${cn}/image/upload/v1/sample.jpg`, { mode: 'no-cors' })
+      .then(() => {
+        showStatus('test-status','success','✓ Cloudinary is reachable.');
+      })
+      .catch(() => {
+        showStatus('test-status','error','Could not reach Cloudinary. Check your Cloud Name in config.js.');
+      });
+  };
+  img.src = `https://res.cloudinary.com/${cn}/image/upload/v1/sample.jpg`;
 }
 
 // â”€â”€ FILE PREVIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
