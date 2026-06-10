@@ -225,6 +225,18 @@
         <div class="stat-card"><div class="num" id="stat-workshops">0</div><div class="lbl">Workshop Photos</div></div>
         <div class="stat-card"><div class="num" id="stat-reviews">4</div><div class="lbl">Published Reviews</div></div>
       </div>
+      <!-- Connection Status Card -->
+      <div class="upload-card" style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 1.5rem;">
+        <div>
+          <h3 style="margin-bottom: 0.2rem;">Service Connection Status</h3>
+          <p style="font-size: 0.82rem; margin-bottom: 0; color: #4A4A4A;">Live validation of your keys configured in <code>config.js</code>.</p>
+        </div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <div id="status-badge-emailjs" class="tag" style="padding: 6px 12px; font-size: 0.8rem; background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5;">EmailJS: Loading...</div>
+          <div id="status-badge-cloudinary" class="tag" style="padding: 6px 12px; font-size: 0.8rem; background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5;">Cloudinary: Loading...</div>
+          <div id="status-badge-firebase" class="tag" style="padding: 6px 12px; font-size: 0.8rem; background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5;">Firebase: Loading...</div>
+        </div>
+      </div>
       <div class="upload-card">
         <h3>Quick Guide</h3>
         <p>Use this admin panel to manage all images and content on the Anubhuti Healing Space website. All images are uploaded directly to Cloudinary and served from there across the website.</p>
@@ -279,7 +291,7 @@
           <div id="founder-preview" class="preview-grid"></div>
         </div>
         <div class="progress-wrap" id="founder-progress-wrap" style="display:none;"><div class="progress-bar" id="founder-progress"></div></div>
-        <button class="submit-btn" onclick="uploadToCloudinary('founder-file','founders','founder-status','founder-progress','founder-list')">
+        <button class="submit-btn" onclick="uploadToCloudinary('founder-file','founders','founder-status','founder-progress','founder-list', () => document.getElementById('founder-select').value)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
           Upload to Cloudinary
         </button>
@@ -323,7 +335,7 @@
           <div id="gallery-preview" class="preview-grid"></div>
         </div>
         <div class="progress-wrap" id="gallery-progress-wrap" style="display:none;"><div class="progress-bar" id="gallery-progress"></div></div>
-        <button class="submit-btn" onclick="uploadToCloudinary('gallery-file','gallery','gallery-status','gallery-progress','gallery-list')">
+        <button class="submit-btn" onclick="uploadToCloudinary('gallery-file','gallery','gallery-status','gallery-progress','gallery-list', () => document.getElementById('gallery-name').value.trim())">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
           Upload to Cloudinary
         </button>
@@ -425,7 +437,7 @@
           <div id="ws-preview" class="preview-grid"></div>
         </div>
         <div class="progress-wrap" id="ws-progress-wrap" style="display:none;"><div class="progress-bar" id="ws-progress"></div></div>
-        <button class="submit-btn" onclick="uploadToCloudinary('ws-file','workshops','ws-status','ws-progress','ws-list')">
+        <button class="submit-btn" onclick="uploadToCloudinary('ws-file','workshops','ws-status','ws-progress','ws-list', () => document.getElementById('ws-name').value.trim())">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
           Upload to Cloudinary
         </button>
@@ -503,6 +515,8 @@ if (_auth) {
       document.getElementById('app').style.display = 'block';
       loadSettingsStatus();
       updateStats();
+      updateConnectionBadges();
+      resetInactivityTimer();
     } else {
       document.getElementById('login-screen').style.display = 'flex';
       document.getElementById('app').style.display = 'none';
@@ -517,6 +531,8 @@ if (_auth) {
       document.getElementById('app').style.display = 'block';
       loadSettingsStatus();
       updateStats();
+      updateConnectionBadges();
+      resetInactivityTimer();
     }
   });
 }
@@ -574,6 +590,8 @@ async function doLogin(){
       document.getElementById('app').style.display = 'block';
       loadSettingsStatus();
       updateStats();
+      updateConnectionBadges();
+      resetInactivityTimer();
     } else {
       errEl.textContent = 'Incorrect email or password.';
       errEl.style.display = 'block';
@@ -584,6 +602,7 @@ async function doLogin(){
 }
 
 async function doLogout(){
+  if (inactivityTimer) clearTimeout(inactivityTimer);
   if (_auth) {
     try {
       await _auth.signOut();
@@ -736,7 +755,7 @@ async function deleteImage(docId, category, cardEl) {
 // â”€â”€ LOAD UPLOADED IMAGES INTO PANEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function loadUploadedImages(category) {
   const panelId = category === 'workshops' ? 'panel-workshops-upload' : 'panel-' + category;
-  const listId  = category + '-list';
+  const listId  = category === 'workshops' ? 'ws-list' : (category === 'founders' ? 'founder-list' : 'gallery-list');
   const listEl  = document.getElementById(listId);
   if (!listEl) return;
   listEl.innerHTML = '<h4>Previously Uploaded</h4><p style="font-size:0.82rem;color:#9B7FC0;margin-bottom:0.8rem;">Loadingâ€¦</p>';
@@ -894,6 +913,80 @@ function showStatus(id, type, msg){
   el.className = 'upload-status ' + type;
   el.textContent = msg;
 }
+
+// ── INACTIVITY TIMEOUT ─────────────────────────────────────────────────────
+let inactivityTimer = null;
+const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 1 hour
+
+function resetInactivityTimer() {
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+  
+  if (document.getElementById('app').style.display === 'block') {
+    inactivityTimer = setTimeout(autoLogout, INACTIVITY_TIMEOUT);
+  }
+}
+
+function autoLogout() {
+  alert("Session expired due to 1 hour of inactivity. Logging out...");
+  doLogout();
+}
+
+function setupInactivityListeners() {
+  const events = ['mousemove', 'keydown', 'mousedown', 'click', 'scroll', 'touchstart'];
+  events.forEach(evt => {
+    document.addEventListener(evt, resetInactivityTimer, { passive: true });
+  });
+}
+
+// ── CONNECTION STATUS BADGES ───────────────────────────────────────────────
+function updateConnectionBadges() {
+  const emailjsBadge = document.getElementById('status-badge-emailjs');
+  const cloudinaryBadge = document.getElementById('status-badge-cloudinary');
+  const firebaseBadge = document.getElementById('status-badge-firebase');
+  if (!emailjsBadge || !cloudinaryBadge || !firebaseBadge) return;
+
+  // EmailJS check
+  if (typeof CONFIG !== 'undefined' && CONFIG.emailjs && CONFIG.emailjs.publicKey && !CONFIG.emailjs.publicKey.startsWith('YOUR_')) {
+    emailjsBadge.style.background = '#f0fdf4';
+    emailjsBadge.style.color = '#166534';
+    emailjsBadge.style.borderColor = '#86efac';
+    emailjsBadge.textContent = 'EmailJS: Connected ✓';
+  } else {
+    emailjsBadge.style.background = '#fef2f2';
+    emailjsBadge.style.color = '#991b1b';
+    emailjsBadge.style.borderColor = '#fca5a5';
+    emailjsBadge.textContent = 'EmailJS: Not Configured ✗';
+  }
+
+  // Cloudinary check
+  if (typeof CONFIG !== 'undefined' && CONFIG.cloudinary && CONFIG.cloudinary.cloudName && !CONFIG.cloudinary.cloudName.startsWith('YOUR_')) {
+    cloudinaryBadge.style.background = '#f0fdf4';
+    cloudinaryBadge.style.color = '#166534';
+    cloudinaryBadge.style.borderColor = '#86efac';
+    cloudinaryBadge.textContent = 'Cloudinary: Connected ✓';
+  } else {
+    cloudinaryBadge.style.background = '#fef2f2';
+    cloudinaryBadge.style.color = '#991b1b';
+    cloudinaryBadge.style.borderColor = '#fca5a5';
+    cloudinaryBadge.textContent = 'Cloudinary: Not Configured ✗';
+  }
+
+  // Firebase check
+  if (typeof db !== 'undefined' && db !== null) {
+    firebaseBadge.style.background = '#f0fdf4';
+    firebaseBadge.style.color = '#166534';
+    firebaseBadge.style.borderColor = '#86efac';
+    firebaseBadge.textContent = 'Firebase: Connected ✓';
+  } else {
+    firebaseBadge.style.background = '#fef2f2';
+    firebaseBadge.style.color = '#991b1b';
+    firebaseBadge.style.borderColor = '#fca5a5';
+    firebaseBadge.textContent = 'Firebase: Not Configured ✗';
+  }
+}
+
+// Start listeners on load
+setupInactivityListeners();
 </script>
 </body>
 </html>
