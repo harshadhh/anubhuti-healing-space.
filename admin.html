@@ -718,43 +718,35 @@ function handleDrop(e, inputId){
 }
 
 // â”€â”€ FIRESTORE HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-async function saveImageToFirestore(category, data) {
+async function saveImageLocally(category, data) {
   const record = { ...data, category, uploadedAt: new Date().toISOString() };
-  let dbSaved = false;
-  let dbError = null;
-
-  if (typeof db !== 'undefined' && db !== null) {
-    try {
-      const docRef = await db.collection('media').add(record);
-      record.id = docRef.id;
-      dbSaved = true;
-    } catch(e) {
-      console.error('Firestore save error:', e);
-      dbError = e.message;
-    }
-  } else {
-    dbError = 'Firebase database not initialized (unconfigured credentials)';
-  }
-
-  // Always also save locally as fallback
   const key = 'local_media_' + category;
   const arr = JSON.parse(localStorage.getItem(key) || '[]');
   if (!record.id) record.id = 'local_' + Date.now();
   arr.unshift(record);
   localStorage.setItem(key, JSON.stringify(arr.slice(0, 100)));
-  return { record, dbSaved, dbError };
+  return record;
 }
 
 async function loadImagesFromSource(category) {
-  if (typeof db !== 'undefined' && db !== null) {
+  const cloudName = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null;
+  if (cloudName && !cloudName.includes('_PLACEHOLDER')) {
+    const tag = `anubhuti-${category}`;
     try {
-      const snap = await db.collection('media')
-        .where('category', '==', category)
-        .orderBy('uploadedAt', 'desc')
-        .limit(50)
-        .get();
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    } catch(e) { console.warn('Firestore read error:', e); }
+      const res = await fetch(`https://res.cloudinary.com/${cloudName}/image/list/${tag}.json`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.resources.map(r => ({
+          id: r.public_id,
+          url: `https://res.cloudinary.com/${cloudName}/image/upload/v${r.version}/${r.public_id}.${r.format}`,
+          name: r.public_id,
+          caption: r.context && r.context.custom && r.context.custom.caption ? r.context.custom.caption : '',
+          uploadedAt: new Date(r.created_at).toISOString()
+        }));
+      }
+    } catch(e) {
+      console.warn('Cloudinary tag list fetch error:', e);
+    }
   }
   // Fallback to localStorage
   return JSON.parse(localStorage.getItem('local_media_' + category) || '[]');
@@ -824,8 +816,6 @@ async function uploadToCloudinary(fileInputId, folder, statusId, progressId, lis
   const files = Array.from(input.files);
   const total = files.length;
   let done = 0;
-  let hasDbFailure = false;
-  let lastDbError = null;
   const pwrap = document.getElementById(progressId + '-wrap');
   const pbar  = document.getElementById(progressId);
   if(pwrap) pwrap.style.display = 'block';
@@ -836,16 +826,19 @@ async function uploadToCloudinary(fileInputId, folder, statusId, progressId, lis
 
   for(const file of files){
     try {
+      const caption = extraMeta ? extraMeta() : file.name;
       const fd = new FormData();
       fd.append('file', file);
       fd.append('upload_preset', uploadPreset);
       fd.append('folder', folder);
+      fd.append('tags', `anubhuti-${folder}`);
+      fd.append('context', `caption=${caption}`);
+      
       const res  = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method:'POST', body:fd });
       const data = await res.json();
       if(data.secure_url){
-        // Build the record
-        const caption = extraMeta ? extraMeta() : file.name;
-        const result  = await saveImageToFirestore(folder, {
+        // Build the record and save locally as cache
+        const record  = await saveImageLocally(folder, {
           url:       data.secure_url,
           name:      file.name,
           caption:   caption,
@@ -853,24 +846,18 @@ async function uploadToCloudinary(fileInputId, folder, statusId, progressId, lis
           width:     data.width,
           height:    data.height
         });
-        const record = result.record;
-        if (!result.dbSaved) {
-          hasDbFailure = true;
-          lastDbError = result.dbError;
-        }
+        
         done++;
         if(pbar) pbar.style.width = Math.round((done/total)*100) + '%';
         // Show in panel immediately
         if(listEl) {
-          const isLocal = record.id && record.id.startsWith('local_');
-          const badgeHtml = isLocal ? ` <span style="background:#fff3cd;color:#856404;border:1px solid #ffeeba;padding:1px 6px;border-radius:3px;font-size:0.7rem;margin-left:6px;font-weight:600;">Local Only (Not on Cloud)</span>` : '';
           const item = document.createElement('div');
           item.className = 'uploaded-item';
           item.setAttribute('data-id', record.id);
           item.innerHTML = `
             <img src="${data.secure_url}" alt="${file.name}">
             <div class="item-info">
-              <div class="item-name">${caption}${badgeHtml}</div>
+              <div class="item-name">${caption}</div>
               <div class="item-url">${data.secure_url}</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;">
@@ -888,11 +875,7 @@ async function uploadToCloudinary(fileInputId, folder, statusId, progressId, lis
       return;
     }
   }
-  if (hasDbFailure) {
-    showStatus(statusId, 'error', `⚠️ Uploaded to Cloudinary, but failed to save to Firebase Database (${lastDbError}). The image is only saved locally in this browser.`);
-  } else {
-    showStatus(statusId,'success',`✓ ${done} image${done>1?'s':''} uploaded and saved. They will appear on the website automatically.`);
-  }
+  showStatus(statusId,'success',`✓ ${done} image${done>1?'s':''} uploaded and saved. They will appear on the website automatically.`);
   updateStats();
 }
 
