@@ -35,21 +35,6 @@ const CONFIG = {
   }
 };
 
-// Merge GITHUB_ACTIONS_CONFIG if injected by GitHub Actions build
-if (typeof window !== "undefined" && window.GITHUB_ACTIONS_CONFIG) {
-  const ghConfig = window.GITHUB_ACTIONS_CONFIG;
-  for (const section in CONFIG) {
-    if (ghConfig[section]) {
-      for (const key in CONFIG[section]) {
-        const ghVal = ghConfig[section][key];
-        if (ghVal && ghVal.trim() !== "" && !ghVal.startsWith("YOUR_")) {
-          CONFIG[section][key] = ghVal.trim();
-        }
-      }
-    }
-  }
-}
-
 
 // ── EMAILJS HELPER ──────────────────────────────────────────────────────────
 // Submits template fields directly to EmailJS REST API.
