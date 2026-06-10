@@ -30,8 +30,8 @@ const CONFIG = {
   // Upload Preset:  Settings → Upload → Add Upload Preset (set to UNSIGNED)
   // These values are SAFE to be public — Cloudinary unsigned presets are designed for client-side use.
   cloudinary: {
-    cloudName: "YOUR_CLOUD_NAME",      // ← replace with your Cloudinary cloud name
-    uploadPreset: "YOUR_UPLOAD_PRESET"    // ← replace with your unsigned upload preset name
+    cloudName: "dnf5aobjg",      // ← replace with your Cloudinary cloud name
+    uploadPreset: "anubhuti"    // ← replace with your unsigned upload preset name
   }
 };
 
