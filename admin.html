@@ -1232,16 +1232,33 @@
         </div>
         <div class="upload-card">
           <h3>Cloudinary Status</h3>
-          <p>Cloudinary credentials are loaded from GitHub Actions.</p>
+          <p>Cloudinary credentials can be overridden here locally, or loaded from GitHub Actions.</p>
           <div class="info-box">
-            <strong>Cloud Name:</strong> <span id="cfg-cloud-name"
-              style="font-family:monospace;color:var(--brand);">Loadingâ€¦</span><br>
-            <strong>Upload Preset:</strong> <span id="cfg-upload-preset"
-              style="font-family:monospace;color:var(--brand);">Loadingâ€¦</span><br>
+            <strong>Active Cloud Name:</strong> <span id="cfg-cloud-name"
+              style="font-family:monospace;color:var(--brand);">Loading…</span><br>
+            <strong>Active Upload Preset:</strong> <span id="cfg-upload-preset"
+              style="font-family:monospace;color:var(--brand);">Loading…</span><br>
             <strong>Firebase:</strong> <span id="cfg-firebase"
-              style="font-family:monospace;color:var(--brand);">Loadingâ€¦</span>
+              style="font-family:monospace;color:var(--brand);">Loading…</span>
           </div>
-          <button class="secondary-btn" onclick="testConnection()">Test Cloudinary Connection</button>
+
+          <div class="form-row" style="margin-bottom:1rem;">
+            <div class="field-group">
+              <label class="field-label">Custom Cloud Name Override</label>
+              <input class="field-input" type="text" id="override-cloud-name" placeholder="e.g. drysec0jr">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Custom Upload Preset Override</label>
+              <input class="field-input" type="text" id="override-upload-preset" placeholder="e.g. anubhuti-healing-space">
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-bottom:1rem;flex-wrap:wrap;">
+            <button class="submit-btn" onclick="saveCloudinaryOverrides()">Save Cloudinary Overrides</button>
+            <button class="secondary-btn" onclick="resetCloudinaryOverrides()">Reset to Defaults</button>
+          </div>
+          <div class="upload-status" id="override-status"></div>
+
+          <button class="secondary-btn" onclick="testConnection()" style="margin-top:0.5rem;">Test Cloudinary Connection</button>
           <div class="upload-status" id="test-status"></div>
           <hr class="divider">
           <div id="local-password-section">
@@ -1410,7 +1427,7 @@
       if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
     });
 
-    // â”€â”€ NAVIGATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─────────────────────────────────────────────────────────────────────────────
     function showPanel(id, el) {
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -1426,11 +1443,53 @@
       document.getElementById('sidebar').classList.toggle('open');
     }
 
-    // â”€â”€ SETTINGS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── CLOUDINARY OVERRIDES HELPERS ──────────────────────────────────────────
+    function getCloudinaryCredentials() {
+      const localCloud = localStorage.getItem('cloudinary_override_cloud_name');
+      const localPreset = localStorage.getItem('cloudinary_override_upload_preset');
+      
+      const cloudName = localCloud || ((typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null);
+      const uploadPreset = localPreset || ((typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.uploadPreset : null);
+      
+      return { cloudName, uploadPreset };
+    }
+
+    function saveCloudinaryOverrides() {
+      const cloud = document.getElementById('override-cloud-name').value.trim();
+      const preset = document.getElementById('override-upload-preset').value.trim();
+      
+      if (!cloud || !preset) {
+        showStatus('override-status', 'error', 'Please fill in both custom fields.');
+        return;
+      }
+      
+      localStorage.setItem('cloudinary_override_cloud_name', cloud);
+      localStorage.setItem('cloudinary_override_upload_preset', preset);
+      
+      showStatus('override-status', 'success', 'Cloudinary overrides saved successfully!');
+      loadSettingsStatus();
+      updateConnectionBadges();
+      updateStats();
+    }
+    
+    function resetCloudinaryOverrides() {
+      localStorage.removeItem('cloudinary_override_cloud_name');
+      localStorage.removeItem('cloudinary_override_upload_preset');
+      
+      document.getElementById('override-cloud-name').value = '';
+      document.getElementById('override-upload-preset').value = '';
+      
+      showStatus('override-status', 'success', 'Cloudinary overrides reset to defaults.');
+      loadSettingsStatus();
+      updateConnectionBadges();
+      updateStats();
+    }
+
+    // ── SETTINGS ─────────────────────────────────────────────────────────────
     function loadSettingsStatus() {
-      // Show config values (read-only display)
-      const cn = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : 'Not configured';
-      const upr = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.uploadPreset : 'Not configured';
+      const { cloudName, uploadPreset } = getCloudinaryCredentials();
+      const cn = cloudName || 'Not configured';
+      const upr = uploadPreset || 'Not configured';
       const fb = (typeof db !== 'undefined' && db !== null) ? 'Connected \u2713' : 'Not configured (optional)';
       const elCn = document.getElementById('cfg-cloud-name'); if (elCn) elCn.textContent = cn;
       const elUp = document.getElementById('cfg-upload-preset'); if (elUp) elUp.textContent = upr;
@@ -1456,7 +1515,8 @@
       });
     }
     function testConnection() {
-      const cn = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null;
+      const { cloudName } = getCloudinaryCredentials();
+      const cn = cloudName;
       if (!cn || cn.includes('_PLACEHOLDER')) { showStatus('test-status', 'error', 'Cloud Name not set in GitHub Actions.'); return; }
       showStatus('test-status', 'loading', 'Testing connection…');
 
@@ -1518,7 +1578,7 @@
     }
 
     async function loadImagesFromSource(category) {
-      const cloudName = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null;
+      const { cloudName } = getCloudinaryCredentials();
       if (cloudName && !cloudName.includes('_PLACEHOLDER')) {
         const tag = `anubhuti-${category}`;
         try {
@@ -1594,8 +1654,7 @@
         return;
       }
       // Get credentials
-      const cloudName = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null;
-      const uploadPreset = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.uploadPreset : null;
+      const { cloudName, uploadPreset } = getCloudinaryCredentials();
 
       if (!cloudName || cloudName.includes('_PLACEHOLDER') || !uploadPreset || uploadPreset.includes('_PLACEHOLDER')) {
         showStatus(statusId, 'error', 'Cloudinary not configured. Please configure your Cloud Name and Upload Preset in GitHub Actions.');
@@ -1765,7 +1824,8 @@
       }
 
       // Cloudinary check
-      if (typeof CONFIG !== 'undefined' && CONFIG.cloudinary && CONFIG.cloudinary.cloudName && !CONFIG.cloudinary.cloudName.startsWith('YOUR_')) {
+      const { cloudName } = getCloudinaryCredentials();
+      if (cloudName && !cloudName.startsWith('YOUR_') && !cloudName.includes('_PLACEHOLDER')) {
         cloudinaryBadge.style.background = '#f0fdf4';
         cloudinaryBadge.style.color = '#166534';
         cloudinaryBadge.style.borderColor = '#86efac';

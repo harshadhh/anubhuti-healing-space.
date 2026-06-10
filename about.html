@@ -4240,7 +4240,8 @@
 <script>
   // ── DYNAMIC IMAGE LOADING FROM CLOUDINARY DIRECTLY ───────────────────────
   async function loadMediaFromSource(category) {
-    const cloudName = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null;
+    const localCloud = localStorage.getItem('cloudinary_override_cloud_name');
+    const cloudName = localCloud || ((typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null);
     if (cloudName && !cloudName.includes('_PLACEHOLDER')) {
       const tag = `anubhuti-${category}`;
       try {
