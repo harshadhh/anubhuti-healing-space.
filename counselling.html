@@ -480,15 +480,14 @@
       const details = `Time Slot: ${time}\nMode: ${mode}\nTherapy Type: ${type}\nConcern: ${concern}`;
 
       sendEmailjsForm({
-        form_name: "Counselling and Therapy Booking",
-        user_name: name,
-        user_email: email,
-        user_phone: phone,
-        user_age: age,
-        user_gender: gender,
-        service: "Counselling and Therapy",
-        details: details,
-        additional_info: "N/A"
+        form_type:  "Counselling and Therapy Booking",
+        from_name:  name,
+        from_email: email,
+        phone:      phone,
+        age:        age,
+        gender:     gender,
+        service:    "Counselling and Therapy",
+        message:    details
       }).then(() => {
         alert("Thank you! Your booking request has been sent successfully. We will reach out to confirm your slot shortly.");
         btn.textContent = origText;
