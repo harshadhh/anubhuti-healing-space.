@@ -229,7 +229,7 @@
       <div class="upload-card" style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 1.5rem;">
         <div>
           <h3 style="margin-bottom: 0.2rem;">Service Connection Status</h3>
-          <p style="font-size: 0.82rem; margin-bottom: 0; color: #4A4A4A;">Live validation of your keys configured in <code>config.js</code>.</p>
+          <p style="font-size: 0.82rem; margin-bottom: 0; color: #4A4A4A;">Live validation of your keys configured in GitHub Actions.</p>
         </div>
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
           <div id="status-badge-emailjs" class="tag" style="padding: 6px 12px; font-size: 0.8rem; background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5;">EmailJS: Loading...</div>
@@ -451,7 +451,7 @@
       <div class="topbar"><div><h1>Settings</h1><div class="sub">Admin password and connection status</div></div></div>
       <div class="upload-card">
         <h3>Cloudinary Status</h3>
-        <p>Cloudinary credentials are loaded from <strong>config.js</strong>. You do not need to enter them here.</p>
+        <p>Cloudinary credentials are loaded from GitHub Actions.</p>
         <div class="info-box">
           <strong>Cloud Name:</strong> <span id="cfg-cloud-name" style="font-family:monospace;color:var(--brand);">Loadingâ€¦</span><br>
           <strong>Upload Preset:</strong> <span id="cfg-upload-preset" style="font-family:monospace;color:var(--brand);">Loadingâ€¦</span><br>
@@ -488,7 +488,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <!-- Config: initialises Firebase + exposes CONFIG -->
-<script src="config.js"></script>
+<script src="api-helpers.js"></script>
 
 <script>
 // â”€â”€ AUTH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -639,7 +639,7 @@ function toggleSidebar(){
 
 // â”€â”€ SETTINGS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function loadSettingsStatus(){
-  // Show config.js values (read-only display)
+  // Show config values (read-only display)
   const cn  = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName    : 'Not configured';
   const upr = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.uploadPreset : 'Not configured';
   const fb  = (typeof db !== 'undefined' && db !== null) ? 'Connected \u2713' : 'Not configured (optional)';
@@ -668,7 +668,7 @@ function saveSettings(){
 }
 function testConnection(){
   const cn = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null;
-  if(!cn || cn.startsWith('YOUR_')){ showStatus('test-status','error','Cloud Name not set in config.js.'); return; }
+  if(!cn || cn.includes('_PLACEHOLDER')){ showStatus('test-status','error','Cloud Name not set in GitHub Actions.'); return; }
   showStatus('test-status','loading','Testing connection…');
   
   const img = new Image();
@@ -682,7 +682,7 @@ function testConnection(){
         showStatus('test-status','success','✓ Cloudinary is reachable.');
       })
       .catch(() => {
-        showStatus('test-status','error','Could not reach Cloudinary. Check your Cloud Name in config.js.');
+        showStatus('test-status','error','Could not reach Cloudinary. Check your Cloud Name.');
       });
   };
   img.src = `https://res.cloudinary.com/${cn}/image/upload/v1/sample.jpg`;
@@ -733,7 +733,7 @@ async function saveImageToFirestore(category, data) {
       dbError = e.message;
     }
   } else {
-    dbError = 'Firebase database not initialized (unconfigured config.js)';
+    dbError = 'Firebase database not initialized (unconfigured credentials)';
   }
 
   // Always also save locally as fallback
@@ -812,12 +812,12 @@ async function uploadToCloudinary(fileInputId, folder, statusId, progressId, lis
     showStatus(statusId,'error','Please select at least one image to upload.');
     return;
   }
-  // Get credentials from config.js
+  // Get credentials
   const cloudName    = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName    : null;
   const uploadPreset = (typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.uploadPreset : null;
 
-  if(!cloudName || cloudName.startsWith('YOUR_') || !uploadPreset || uploadPreset.startsWith('YOUR_')){
-    showStatus(statusId,'error','Cloudinary not configured. Please add your Cloud Name and Upload Preset to config.js.');
+  if(!cloudName || cloudName.includes('_PLACEHOLDER') || !uploadPreset || uploadPreset.includes('_PLACEHOLDER')){
+    showStatus(statusId,'error','Cloudinary not configured. Please configure your Cloud Name and Upload Preset in GitHub Actions.');
     return;
   }
 
