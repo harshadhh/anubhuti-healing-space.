@@ -711,19 +711,29 @@ function handleDrop(e, inputId){
 // â”€â”€ FIRESTORE HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function saveImageToFirestore(category, data) {
   const record = { ...data, category, uploadedAt: new Date().toISOString() };
+  let dbSaved = false;
+  let dbError = null;
+
   if (typeof db !== 'undefined' && db !== null) {
     try {
       const docRef = await db.collection('media').add(record);
       record.id = docRef.id;
-    } catch(e) { console.warn('Firestore save error:', e); }
+      dbSaved = true;
+    } catch(e) {
+      console.error('Firestore save error:', e);
+      dbError = e.message;
+    }
+  } else {
+    dbError = 'Firebase database not initialized (unconfigured config.js)';
   }
+
   // Always also save locally as fallback
   const key = 'local_media_' + category;
   const arr = JSON.parse(localStorage.getItem(key) || '[]');
   if (!record.id) record.id = 'local_' + Date.now();
   arr.unshift(record);
   localStorage.setItem(key, JSON.stringify(arr.slice(0, 100)));
-  return record;
+  return { record, dbSaved, dbError };
 }
 
 async function loadImagesFromSource(category) {
@@ -752,13 +762,13 @@ async function deleteImage(docId, category, cardEl) {
   updateStats();
 }
 
-// â”€â”€ LOAD UPLOADED IMAGES INTO PANEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── LOAD UPLOADED IMAGES INTO PANEL ─────────────────────────────────────────
 async function loadUploadedImages(category) {
   const panelId = category === 'workshops' ? 'panel-workshops-upload' : 'panel-' + category;
   const listId  = category === 'workshops' ? 'ws-list' : (category === 'founders' ? 'founder-list' : 'gallery-list');
   const listEl  = document.getElementById(listId);
   if (!listEl) return;
-  listEl.innerHTML = '<h4>Previously Uploaded</h4><p style="font-size:0.82rem;color:#9B7FC0;margin-bottom:0.8rem;">Loadingâ€¦</p>';
+  listEl.innerHTML = '<h4>Previously Uploaded</h4><p style="font-size:0.82rem;color:#9B7FC0;margin-bottom:0.8rem;">Loading…</p>';
   const images = await loadImagesFromSource(category);
   if (!images.length) {
     listEl.innerHTML = '<h4>Previously Uploaded</h4><p style="font-size:0.82rem;color:#9B7FC0;">No images uploaded yet.</p>';
@@ -769,10 +779,12 @@ async function loadUploadedImages(category) {
     const item = document.createElement('div');
     item.className = 'uploaded-item';
     item.setAttribute('data-id', img.id);
+    const isLocal = img.id && img.id.startsWith('local_');
+    const badgeHtml = isLocal ? ` <span style="background:#fff3cd;color:#856404;border:1px solid #ffeeba;padding:1px 6px;border-radius:3px;font-size:0.7rem;margin-left:6px;font-weight:600;">Local Only (Not on Cloud)</span>` : '';
     item.innerHTML = `
       <img src="${img.url}" alt="${img.name || ''}" onerror="this.style.background='#f0ebf8';this.src=''">
       <div class="item-info">
-        <div class="item-name">${img.caption || img.name || 'Untitled'}</div>
+        <div class="item-name">${img.caption || img.name || 'Untitled'}${badgeHtml}</div>
         <div class="item-url">${img.url}</div>
         <div style="font-size:0.7rem;color:#9B7FC0;margin-top:2px;">${img.uploadedAt ? new Date(img.uploadedAt).toLocaleDateString('en-IN') : ''}</div>
       </div>
@@ -803,10 +815,12 @@ async function uploadToCloudinary(fileInputId, folder, statusId, progressId, lis
   const files = Array.from(input.files);
   const total = files.length;
   let done = 0;
+  let hasDbFailure = false;
+  let lastDbError = null;
   const pwrap = document.getElementById(progressId + '-wrap');
   const pbar  = document.getElementById(progressId);
   if(pwrap) pwrap.style.display = 'block';
-  showStatus(statusId,'loading',`Uploading ${total} file${total>1?'s':''}â€¦`);
+  showStatus(statusId,'loading',`Uploading ${total} file${total>1?'s':''}…`);
 
   const listEl = document.getElementById(listId);
   if(listEl && !listEl.querySelector('h4')) listEl.innerHTML = '<h4>Just Uploaded</h4>';
@@ -822,7 +836,7 @@ async function uploadToCloudinary(fileInputId, folder, statusId, progressId, lis
       if(data.secure_url){
         // Build the record
         const caption = extraMeta ? extraMeta() : file.name;
-        const record  = await saveImageToFirestore(folder, {
+        const result  = await saveImageToFirestore(folder, {
           url:       data.secure_url,
           name:      file.name,
           caption:   caption,
@@ -830,17 +844,24 @@ async function uploadToCloudinary(fileInputId, folder, statusId, progressId, lis
           width:     data.width,
           height:    data.height
         });
+        const record = result.record;
+        if (!result.dbSaved) {
+          hasDbFailure = true;
+          lastDbError = result.dbError;
+        }
         done++;
         if(pbar) pbar.style.width = Math.round((done/total)*100) + '%';
         // Show in panel immediately
         if(listEl) {
+          const isLocal = record.id && record.id.startsWith('local_');
+          const badgeHtml = isLocal ? ` <span style="background:#fff3cd;color:#856404;border:1px solid #ffeeba;padding:1px 6px;border-radius:3px;font-size:0.7rem;margin-left:6px;font-weight:600;">Local Only (Not on Cloud)</span>` : '';
           const item = document.createElement('div');
           item.className = 'uploaded-item';
           item.setAttribute('data-id', record.id);
           item.innerHTML = `
             <img src="${data.secure_url}" alt="${file.name}">
             <div class="item-info">
-              <div class="item-name">${caption}</div>
+              <div class="item-name">${caption}${badgeHtml}</div>
               <div class="item-url">${data.secure_url}</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;">
@@ -858,7 +879,11 @@ async function uploadToCloudinary(fileInputId, folder, statusId, progressId, lis
       return;
     }
   }
-  showStatus(statusId,'success',`âœ“ ${done} image${done>1?'s':''} uploaded and saved. They will appear on the website automatically.`);
+  if (hasDbFailure) {
+    showStatus(statusId, 'error', `⚠️ Uploaded to Cloudinary, but failed to save to Firebase Database (${lastDbError}). The image is only saved locally in this browser.`);
+  } else {
+    showStatus(statusId,'success',`✓ ${done} image${done>1?'s':''} uploaded and saved. They will appear on the website automatically.`);
+  }
   updateStats();
 }
 
