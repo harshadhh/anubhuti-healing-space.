@@ -436,15 +436,14 @@
       btn.textContent = "Sending Registration Request...";
 
       sendEmailjsForm({
-        form_name: "Workshop Registration",
-        user_name: name,
-        user_email: email,
-        user_phone: phone,
-        user_age: age,
-        user_gender: gender,
-        service: `Workshop: ${workshop}`,
-        details: `Workshop Selected: ${workshop}`,
-        additional_info: "N/A"
+        form_type:  "Workshop Registration",
+        from_name:  name,
+        from_email: email,
+        phone:      phone,
+        age:        age,
+        gender:     gender,
+        service:    `Workshop: ${workshop}`,
+        message:    `Workshop Selected: ${workshop}`
       }).then(() => {
         alert("Thank you for registering! We will confirm your workshop slot shortly. You can also WhatsApp us at +91 87667 09104.");
         btn.textContent = origText;
