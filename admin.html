@@ -1679,7 +1679,15 @@
           fd.append('file', file);
           fd.append('upload_preset', uploadPreset);
           fd.append('folder', folder);
-          fd.append('tags', `anubhuti-${folder}`);
+          let tags = `anubhuti-${folder}`;
+          if (folder === 'founders') {
+            if (caption.includes('darshani')) {
+              tags += `,anubhuti-darshani`;
+            } else if (caption.includes('dhanashri') || caption.includes('patil')) {
+              tags += `,anubhuti-dhanashri`;
+            }
+          }
+          fd.append('tags', tags);
           fd.append('context', `caption=${caption}`);
 
           const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: fd });
