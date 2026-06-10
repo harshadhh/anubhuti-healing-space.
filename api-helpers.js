@@ -15,8 +15,8 @@ const CONFIG = {
     appId: "FIREBASE_APP_ID_PLACEHOLDER"
   },
   cloudinary: {
-    cloudName: "CLOUDINARY_CLOUD_NAME_PLACEHOLDER",
-    uploadPreset: "CLOUDINARY_UPLOAD_PRESET_PLACEHOLDER"
+    cloudName: "drysec0jr",
+    uploadPreset: "anubhuti-healing-space"
   }
 };
 
