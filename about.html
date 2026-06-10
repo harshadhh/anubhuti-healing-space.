@@ -4260,39 +4260,51 @@
         console.warn('Cloudinary tag list fetch error:', e);
       }
     }
-    return JSON.parse(localStorage.getItem('local_media_' + category) || '[]');
+    const storageKey = (category === 'darshani' || category === 'dhanashri') ? 'founders' : category;
+    return JSON.parse(localStorage.getItem('local_media_' + storageKey) || '[]');
   }
 
   async function initDynamicPhotos() {
     // ── FOUNDERS ───────────────────────────────────────────────────────────
-    const founders = await loadMediaFromSource('founders');
-    founders.forEach(img => {
-      const key = img.caption ? img.caption.toLowerCase() : img.name.toLowerCase();
-      // Match by name in caption/name field
-      if (key.includes('darshani')) {
-        const wrap = document.getElementById('avatar-darshani');
-        if (wrap) {
-          const el = document.getElementById('initials-darshani');
-          if (el) el.remove();
-          const photo = document.createElement('img');
-          photo.src = img.url;
-          photo.alt = 'Darshani Darwatkar';
-          photo.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:inherit;';
-          wrap.appendChild(photo);
-        }
-      } else if (key.includes('dhanashri')) {
-        const wrap = document.getElementById('avatar-dhanashri');
-        if (wrap) {
-          const el = document.getElementById('initials-dhanashri');
-          if (el) el.remove();
-          const photo = document.createElement('img');
-          photo.src = img.url;
-          photo.alt = 'Dhanashri Pravin Patil';
-          photo.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:inherit;';
-          wrap.appendChild(photo);
-        }
-      }
+    const darshaniPhotos = await loadMediaFromSource('darshani');
+    const darshaniImg = darshaniPhotos.find(img => {
+      const key = (img.caption || img.name || '').toLowerCase();
+      return !img.id.startsWith('local_') || key.includes('darshani');
     });
+    if (darshaniImg) {
+      const wrap = document.getElementById('avatar-darshani');
+      if (wrap) {
+        const el = document.getElementById('initials-darshani');
+        if (el) el.remove();
+        const oldImg = wrap.querySelector('img');
+        if (oldImg) oldImg.remove();
+        const photo = document.createElement('img');
+        photo.src = darshaniImg.url;
+        photo.alt = 'Darshani Darwatkar';
+        photo.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:inherit;';
+        wrap.appendChild(photo);
+      }
+    }
+
+    const dhanashriPhotos = await loadMediaFromSource('dhanashri');
+    const dhanashriImg = dhanashriPhotos.find(img => {
+      const key = (img.caption || img.name || '').toLowerCase();
+      return !img.id.startsWith('local_') || key.includes('dhanashri') || key.includes('patil');
+    });
+    if (dhanashriImg) {
+      const wrap = document.getElementById('avatar-dhanashri');
+      if (wrap) {
+        const el = document.getElementById('initials-dhanashri');
+        if (el) el.remove();
+        const oldImg = wrap.querySelector('img');
+        if (oldImg) oldImg.remove();
+        const photo = document.createElement('img');
+        photo.src = dhanashriImg.url;
+        photo.alt = 'Dhanashri Pravin Patil';
+        photo.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:inherit;';
+        wrap.appendChild(photo);
+      }
+    }
 
     // ── GALLERY ────────────────────────────────────────────────────────────
     const galleryImages = await loadMediaFromSource('gallery');
