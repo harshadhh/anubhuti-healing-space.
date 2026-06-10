@@ -52,8 +52,8 @@ jobs:
               appId:             "${{ secrets.FIREBASE_APP_ID || vars.FIREBASE_APP_ID }}"
             },
             cloudinary: {
-              cloudName:    "${{ secrets.CLOUDINARY_CLOUD_NAME || vars.CLOUDINARY_CLOUD_NAME || secrets.CLOUDINARY_CLOUD_NAME_PLACEHOLDER || vars.CLOUDINARY_CLOUD_NAME_PLACEHOLDER }}",
-              uploadPreset: "${{ secrets.CLOUDINARY_UPLOAD_PRESET || vars.CLOUDINARY_UPLOAD_PRESET || secrets.CLOUDINARY_UPLOAD_PRESET_PLACEHOLDER || vars.CLOUDINARY_UPLOAD_PRESET_PLACEHOLDER }}"
+              cloudName:    "${{ secrets.CLOUDINARY_CLOUD_NAME || vars.CLOUDINARY_CLOUD_NAME || 'drysec0jr' }}",
+              uploadPreset: "${{ secrets.CLOUDINARY_UPLOAD_PRESET || vars.CLOUDINARY_UPLOAD_PRESET || 'anubhuti-healing-space' }}"
             }
           };
 
