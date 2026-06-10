@@ -432,15 +432,14 @@
       btn.textContent = "Sending Booking Request...";
 
       sendEmailjsForm({
-        form_name: "Support Group Joining Request",
-        user_name: name,
-        user_email: email,
-        user_phone: phone,
-        user_age: age,
-        user_gender: gender,
-        service: `Support Group: ${group}`,
-        details: `Support Group Selected: ${group}`,
-        additional_info: "N/A"
+        form_type:  "Support Group Joining Request",
+        from_name:  name,
+        from_email: email,
+        phone:      phone,
+        age:        age,
+        gender:     gender,
+        service:    `Support Group: ${group}`,
+        message:    `Support Group Selected: ${group}`
       }).then(() => {
         alert("Thank you! We will reach out to confirm your group placement shortly. You can also WhatsApp us at +91 87667 09104.");
         btn.textContent = origText;
