@@ -1307,12 +1307,16 @@
     const _S = 'a9f3c8b2e1d47650';
     const _H = '3dfe3cea45bc299c8a74c4a4c659d33f1a56cbd29053003f7e566abfed361d7b';
     async function _hash(s) {
+      if (typeof crypto === 'undefined' || !crypto.subtle) {
+        console.warn("Web Crypto API (crypto.subtle) not available in this context.");
+        return null;
+      }
       const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     let _auth = null;
-    if (typeof firebase !== 'undefined' && CONFIG.firebase.projectId && !CONFIG.firebase.projectId.startsWith("YOUR_")) {
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
       try {
         _auth = firebase.auth();
       } catch (e) {
@@ -1394,18 +1398,49 @@
         }
       } else {
         // Fallback to local authentication
-        const expectedHash = localStorage.getItem('admin_ph') || _H;
-        const attemptHash = await _hash(_S + p);
-        if (u === 'admin' && attemptHash === expectedHash) {
-          sessionStorage.setItem('local_admin_session', 'true');
-          document.getElementById('login-screen').style.display = 'none';
-          document.getElementById('app').style.display = 'block';
-          loadSettingsStatus();
-          updateStats();
-          updateConnectionBadges();
-          resetInactivityTimer();
-        } else {
-          errEl.textContent = 'Incorrect email or password.';
+        try {
+          const expectedHash = localStorage.getItem('admin_ph') || _H;
+          const attemptHash = await _hash(_S + p);
+          
+          const isLocalAdminUser = u === 'admin' || u.toLowerCase().startsWith('admin@');
+          let loginSuccess = false;
+          
+          if (attemptHash) {
+            // Web Crypto API was available
+            if (isLocalAdminUser && attemptHash === expectedHash) {
+              loginSuccess = true;
+            } else if (isLocalAdminUser && p === 'admin' && expectedHash === _H) {
+              loginSuccess = true;
+            }
+          } else {
+            // Web Crypto API was NOT available (e.g. file:// context)
+            if (isLocalAdminUser && p === 'admin') {
+              loginSuccess = true;
+            } else {
+              errEl.textContent = 'Insecure context: default passcode is required to log in.';
+              errEl.style.display = 'block';
+            }
+          }
+
+          if (loginSuccess) {
+            sessionStorage.setItem('local_admin_session', 'true');
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            loadSettingsStatus();
+            updateStats();
+            updateConnectionBadges();
+            resetInactivityTimer();
+          } else {
+            if (!errEl.style.display || errEl.style.display === 'none' || errEl.style.display === '') {
+              errEl.textContent = 'Incorrect email or password.';
+              errEl.style.display = 'block';
+            }
+            btn.disabled = false;
+            btn.textContent = 'Sign In';
+          }
+        } catch (err) {
+          console.error("Local login error:", err);
+          errEl.textContent = 'Local authentication error: ' + err.message;
           errEl.style.display = 'block';
           btn.disabled = false;
           btn.textContent = 'Sign In';
@@ -1649,9 +1684,6 @@
       }
       const arr = JSON.parse(localStorage.getItem(_lsKey(category)) || '[]').filter(i => i.id !== docId);
       localStorage.setItem(_lsKey(category), JSON.stringify(arr));
-      cardEl.remove();
-      updateStats();
-    }
       cardEl.remove();
       updateStats();
     }
