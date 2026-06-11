@@ -938,7 +938,7 @@
         <div style="font-family:'Outfit',sans-serif;font-size:1.05rem;font-weight:700;color:#1A1A1A;">Verified Google Reviews</div>
         <a href="https://www.google.com/maps/search/Anubhuti+Healing+Space+Pune" target="_blank" style="font-size:0.82rem;font-weight:600;color:#5B2D8E;text-decoration:none;border:1px solid rgba(91,45,142,0.25);padding:4px 12px;border-radius:4px;">View All on Google</a>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;">
+      <div id="reviews-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;">
 
         <!-- Review 1: Siddhi Ghadge -->
         <div style="background:#FFFFFF;border:1px solid rgba(91,45,142,0.12);border-radius:6px;padding:1.8rem;box-shadow:0 2px 12px rgba(0,0,0,0.04);">
@@ -1124,6 +1124,9 @@
       </svg></a>
   </div>
 
+  <!-- Firebase SDKs (must come before api-helpers.js) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="api-helpers.js"></script>
   <script>
     function handleReviewSubmit(btn) {
@@ -1185,6 +1188,95 @@
         }, 5000);
       });
     }
+  </script>
+
+  <!-- Script for loading dynamic reviews -->
+  <script>
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+    }
+
+    async function getDeletedMediaIds() {
+      const localDeleted = JSON.parse(localStorage.getItem('deleted_media_ids') || '[]');
+      if (typeof db !== 'undefined' && db !== null) {
+        try {
+          const snap = await db.collection('deleted_media').get();
+          const dbDeleted = snap.docs.map(doc => doc.id);
+          const combined = Array.from(new Set([...localDeleted, ...dbDeleted]));
+          localStorage.setItem('deleted_media_ids', JSON.stringify(combined));
+          return combined;
+        } catch (e) {
+          console.warn('Firestore deleted_media read error:', e.message);
+        }
+      }
+      return localDeleted;
+    }
+
+    async function loadReviewsFromSource() {
+      const deletedIds = await getDeletedMediaIds();
+      let rawReviews = [];
+      if (typeof db !== 'undefined' && db !== null) {
+        try {
+          const snap = await db.collection('reviews')
+            .orderBy('uploadedAt', 'desc')
+            .limit(100)
+            .get();
+          if (!snap.empty) {
+            rawReviews = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          }
+        } catch (e) {
+          console.warn('Firestore reviews read error:', e.message);
+        }
+      }
+      
+      if (rawReviews.length === 0) {
+        rawReviews = JSON.parse(localStorage.getItem('media_manifest_reviews') || '[]');
+      }
+      
+      return rawReviews.filter(r => !deletedIds.includes(r.id));
+    }
+
+    async function initDynamicReviews() {
+      const reviewsGrid = document.getElementById('reviews-grid');
+      if (!reviewsGrid) return;
+      
+      try {
+        const dynamicReviews = await loadReviewsFromSource();
+        const sortedReviews = [...dynamicReviews].reverse();
+        sortedReviews.forEach(rev => {
+          const div = document.createElement('div');
+          div.style.background = '#FFFFFF';
+          div.style.border = '1px solid rgba(91,45,142,0.12)';
+          div.style.borderRadius = '6px';
+          div.style.padding = '1.8rem';
+          div.style.boxShadow = '0 2px 12px rgba(0,0,0,0.04)';
+          
+          div.innerHTML = `
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;">
+              <div>
+                <div style="font-family:'Outfit',sans-serif;font-weight:700;font-size:0.95rem;color:#1A1A1A;">${escapeHtml(rev.name)}</div>
+                <div style="font-size:0.78rem;color:#4A4A4A;margin-top:2px;">${escapeHtml(rev.service)}</div>
+              </div>
+              <div style="display:flex;gap:2px;">
+                <span style="color:#5B2D8E;font-size:0.9rem;">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
+              </div>
+            </div>
+            <p style="font-size:0.9rem;color:#2A2A2A;line-height:1.75;margin:0;">${escapeHtml(rev.text)}</p>
+            <div style="margin-top:1rem;font-size:0.78rem;color:#5B2D8E;font-weight:600;">${escapeHtml(rev.source)}</div>
+          `;
+          reviewsGrid.insertBefore(div, reviewsGrid.firstChild);
+        });
+      } catch (err) {
+        console.error('Error loading dynamic reviews:', err);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', initDynamicReviews);
   </script>
 
   <script>
