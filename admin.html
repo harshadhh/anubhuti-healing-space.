@@ -1612,6 +1612,37 @@
     //    but the REAL cross-browser fix is the Cloudinary folder manifest below) ──
     function _lsKey(category) { return 'media_manifest_' + category; }
 
+    async function getDeletedMediaIds() {
+      const localDeleted = JSON.parse(localStorage.getItem('deleted_media_ids') || '[]');
+      if (typeof db !== 'undefined' && db !== null) {
+        try {
+          const snap = await db.collection('deleted_media').get();
+          const dbDeleted = snap.docs.map(doc => doc.id);
+          const combined = Array.from(new Set([...localDeleted, ...dbDeleted]));
+          localStorage.setItem('deleted_media_ids', JSON.stringify(combined));
+          return combined;
+        } catch (e) {
+          console.warn('Firestore deleted_media read error:', e.message);
+        }
+      }
+      return localDeleted;
+    }
+
+    async function markImageAsDeleted(docId) {
+      const localDeleted = JSON.parse(localStorage.getItem('deleted_media_ids') || '[]');
+      if (!localDeleted.includes(docId)) {
+        localDeleted.push(docId);
+        localStorage.setItem('deleted_media_ids', JSON.stringify(localDeleted));
+      }
+      if (typeof db !== 'undefined' && db !== null) {
+        try {
+          await db.collection('deleted_media').doc(docId).set({ deletedAt: new Date().toISOString() });
+        } catch (e) {
+          console.warn('Firestore deleted_media write error:', e.message);
+        }
+      }
+    }
+
     async function saveImageLocally(category, data) {
       const record = { ...data, category, uploadedAt: new Date().toISOString() };
       if (!record.id) record.id = 'img_' + Date.now();
@@ -1632,6 +1663,9 @@
     }
 
     async function loadImagesFromSource(category) {
+      const deletedIds = await getDeletedMediaIds();
+      let rawImages = [];
+
       // ── PRIORITY 1: Firestore (cross-browser, always accurate) ──
       if (typeof db !== 'undefined' && db !== null) {
         try {
@@ -1641,7 +1675,7 @@
             .limit(100)
             .get();
           if (!snap.empty) {
-            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            rawImages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           }
         } catch (e) {
           console.warn('Firestore read error:', e.message);
@@ -1649,43 +1683,72 @@
       }
 
       // ── PRIORITY 2: Cloudinary tag-list JSON (works if "Resource list" is ON in Cloudinary) ──
-      const { cloudName } = getCloudinaryCredentials();
-      if (cloudName && !cloudName.includes('_PLACEHOLDER')) {
-        try {
-          const res = await fetch(`https://res.cloudinary.com/${cloudName}/image/list/anubhuti-${category}.json`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.resources && data.resources.length > 0) {
-              // Also cache these into localStorage so they survive next time
-              const records = data.resources.map(r => ({
-                id: r.public_id,
-                url: `https://res.cloudinary.com/${cloudName}/image/upload/v${r.version}/${r.public_id}.${r.format}`,
-                name: r.public_id,
-                caption: r.context?.custom?.caption || '',
-                category,
-                uploadedAt: new Date(r.created_at).toISOString()
-              }));
-              localStorage.setItem(_lsKey(category), JSON.stringify(records));
-              return records;
+      if (rawImages.length === 0) {
+        const { cloudName } = getCloudinaryCredentials();
+        if (cloudName && !cloudName.includes('_PLACEHOLDER')) {
+          try {
+            const res = await fetch(`https://res.cloudinary.com/${cloudName}/image/list/anubhuti-${category}.json`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.resources && data.resources.length > 0) {
+                // Also cache these into localStorage so they survive next time
+                rawImages = data.resources.map(r => ({
+                  id: r.public_id,
+                  url: `https://res.cloudinary.com/${cloudName}/image/upload/v${r.version}/${r.public_id}.${r.format}`,
+                  name: r.public_id,
+                  caption: r.context?.custom?.caption || '',
+                  category,
+                  uploadedAt: new Date(r.created_at).toISOString()
+                }));
+                localStorage.setItem(_lsKey(category), JSON.stringify(rawImages));
+              }
             }
+          } catch (e) {
+            console.warn('Cloudinary tag list error:', e.message);
           }
-        } catch (e) {
-          console.warn('Cloudinary tag list error:', e.message);
         }
       }
 
       // ── PRIORITY 3: localStorage manifest (same browser fallback) ──
-      return JSON.parse(localStorage.getItem(_lsKey(category)) || '[]');
+      if (rawImages.length === 0) {
+        rawImages = JSON.parse(localStorage.getItem(_lsKey(category)) || '[]');
+      }
+
+      return rawImages.filter(img => !deletedIds.includes(img.id));
     }
 
     async function deleteImage(docId, category, cardEl) {
-      if (typeof db !== 'undefined' && db !== null) {
-        try { await db.collection('media_uploads').doc(docId).delete(); } catch (e) { console.warn(e); }
+      if (!confirm("Are you sure you want to delete this image?")) {
+        return;
       }
+
+      // Smooth visual feedback: fade out and shrink
+      cardEl.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+      cardEl.style.opacity = '0';
+      cardEl.style.transform = 'scale(0.92) translateY(-10px)';
+      cardEl.style.maxHeight = '0';
+      cardEl.style.padding = '0';
+      cardEl.style.margin = '0';
+      cardEl.style.overflow = 'hidden';
+
+      if (typeof db !== 'undefined' && db !== null) {
+        try {
+          await db.collection('media_uploads').doc(docId).delete();
+        } catch (e) {
+          console.warn(docId, e);
+        }
+      }
+
+      // Add to deleted collection/local list so it won't re-appear from Cloudinary tag list fetches
+      await markImageAsDeleted(docId);
+
       const arr = JSON.parse(localStorage.getItem(_lsKey(category)) || '[]').filter(i => i.id !== docId);
       localStorage.setItem(_lsKey(category), JSON.stringify(arr));
-      cardEl.remove();
-      updateStats();
+
+      setTimeout(() => {
+        cardEl.remove();
+        updateStats();
+      }, 400);
     }
 
     // ── LOAD UPLOADED IMAGES INTO PANEL ─────────────────────────────────────────
