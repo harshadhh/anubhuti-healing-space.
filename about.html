@@ -4238,9 +4238,27 @@
 <!-- Config (initialises Firebase + exposes CONFIG) -->
 <script src="api-helpers.js"></script>
 <script>
+  async function getDeletedMediaIds() {
+    const localDeleted = JSON.parse(localStorage.getItem('deleted_media_ids') || '[]');
+    if (typeof db !== 'undefined' && db !== null) {
+      try {
+        const snap = await db.collection('deleted_media').get();
+        const dbDeleted = snap.docs.map(doc => doc.id);
+        const combined = Array.from(new Set([...localDeleted, ...dbDeleted]));
+        localStorage.setItem('deleted_media_ids', JSON.stringify(combined));
+        return combined;
+      } catch (e) {
+        console.warn('Firestore deleted_media read error:', e);
+      }
+    }
+    return localDeleted;
+  }
+
   // ── DYNAMIC IMAGE LOADING FROM CLOUDINARY DIRECTLY ───────────────────────
   async function loadMediaFromSource(category) {
     const storageKey = (category === 'darshani' || category === 'dhanashri') ? 'founders' : category;
+    const deletedIds = await getDeletedMediaIds();
+    let rawImages = [];
 
     // ── PRIORITY 1: Firestore (cross-browser, always accurate) ──
     if (typeof db !== 'undefined' && db !== null) {
@@ -4251,7 +4269,7 @@
           .limit(100)
           .get();
         if (!snap.empty) {
-          return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          rawImages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         }
       } catch (e) {
         console.warn('Firestore read error:', e);
@@ -4259,29 +4277,35 @@
     }
 
     // ── PRIORITY 2: Cloudinary tag-list JSON (fallback if Firebase is unconfigured) ──
-    const localCloud = localStorage.getItem('cloudinary_override_cloud_name');
-    const cloudName = localCloud || ((typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null);
-    if (cloudName && !cloudName.includes('_PLACEHOLDER')) {
-      const tag = `anubhuti-${storageKey}`;
-      try {
-        const res = await fetch(`https://res.cloudinary.com/${cloudName}/image/list/${tag}.json`);
-        if (res.ok) {
-          const data = await res.json();
-          return data.resources.map(r => ({
-            id: r.public_id,
-            url: `https://res.cloudinary.com/${cloudName}/image/upload/v${r.version}/${r.public_id}.${r.format}`,
-            name: r.public_id,
-            caption: r.context && r.context.custom && r.context.custom.caption ? r.context.custom.caption : '',
-            uploadedAt: new Date(r.created_at).toISOString()
-          }));
+    if (rawImages.length === 0) {
+      const localCloud = localStorage.getItem('cloudinary_override_cloud_name');
+      const cloudName = localCloud || ((typeof CONFIG !== 'undefined' && CONFIG.cloudinary) ? CONFIG.cloudinary.cloudName : null);
+      if (cloudName && !cloudName.includes('_PLACEHOLDER')) {
+        const tag = `anubhuti-${storageKey}`;
+        try {
+          const res = await fetch(`https://res.cloudinary.com/${cloudName}/image/list/${tag}.json`);
+          if (res.ok) {
+            const data = await res.json();
+            rawImages = data.resources.map(r => ({
+              id: r.public_id,
+              url: `https://res.cloudinary.com/${cloudName}/image/upload/v${r.version}/${r.public_id}.${r.format}`,
+              name: r.public_id,
+              caption: r.context && r.context.custom && r.context.custom.caption ? r.context.custom.caption : '',
+              uploadedAt: new Date(r.created_at).toISOString()
+            }));
+          }
+        } catch(e) {
+          console.warn('Cloudinary tag list fetch error:', e);
         }
-      } catch(e) {
-        console.warn('Cloudinary tag list fetch error:', e);
       }
     }
 
     // ── PRIORITY 3: localStorage (same browser fallback) ──
-    return JSON.parse(localStorage.getItem('media_manifest_' + storageKey) || '[]');
+    if (rawImages.length === 0) {
+      rawImages = JSON.parse(localStorage.getItem('media_manifest_' + storageKey) || '[]');
+    }
+
+    return rawImages.filter(img => !deletedIds.includes(img.id));
   }
 
   async function initDynamicPhotos() {
@@ -4342,7 +4366,7 @@
           const div = document.createElement('div');
           div.className = 'gallery-item';
           div.style.cssText = 'background-image:url(' + img.url + ');background-size:cover;background-position:center;';
-          div.innerHTML = `<div class="gi-inner"><div class="gi-label">${img.caption || img.name || ''}</div></div>`;
+          div.innerHTML = `<div class="gi-inner"></div>`;
           dynTrack.appendChild(div);
         });
         // Hide static fallback if we have real images
